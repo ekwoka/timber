@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AlpineTS Sandbox</title>
+    <script type="module">
+      import Alpine from '../packages/timberts/src/index.ts';
+
+      window.Alpine = Alpine;
+      Alpine.start();
+    </script>
+  </head>
+  <body
+    x-data="{ items: [{x:0, k:1},{x:1, k:2}] }"
+    x-init="window.testObjects = []">
+    <button
+      x-on:click="items = [{x:Math.random()*10|0, k:1},{x:Math.random()*10|0, k:2}]">
+      update
+    </button>
+    <template x-for="(item, idx) in items" :key="item.k">
+      <div
+        x-data="{ inner: true }"
+        x-effect="console.log('inner', item.__v_raw)"
+        x-init="window.testObjects[idx] = $el._x_dataStack">
+        <span x-text="item.x"></span>: <span x-text="item.k"></span>
+      </div>
+    </template>
+  </body>
+</html>

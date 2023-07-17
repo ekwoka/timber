@@ -1,14 +1,13 @@
 import { nextTick } from './nextTick';
 
 let nextId = 1;
-const DEBUG = false;
 export class Signal<T = unknown> {
   id: number;
   value: T;
   dependents: Set<Effect> = new Set();
   constructor(value: T) {
     this.id = nextId++;
-    DEBUG &&
+    import.meta.DEBUG &&
       console.log(
         'creating Signal:',
         typeof value === 'object' ? 'object' : value,
@@ -17,7 +16,7 @@ export class Signal<T = unknown> {
     this.value = value;
   }
   get() {
-    DEBUG &&
+    import.meta.DEBUG &&
       console.log(
         'getting Signal:',
         typeof this.value === 'object' ? 'object' : this.value,
@@ -26,7 +25,7 @@ export class Signal<T = unknown> {
     if (dontTrack) return this.value;
     const activeEffect = effectStack.at(-1);
     if (activeEffect) {
-      DEBUG &&
+      import.meta.DEBUG &&
         console.log(
           'registering signal:',
           this.id,
@@ -39,12 +38,12 @@ export class Signal<T = unknown> {
     return this.value;
   }
   set(value: T) {
-    DEBUG && console.log('setting signal:', value, this.id);
+    import.meta.DEBUG && console.log('setting signal:', value, this.id);
     this.value = value;
     this.dependents.forEach((effect) => effect.rerun());
   }
   release(effect: Effect) {
-    DEBUG &&
+    import.meta.DEBUG &&
       console.log('releasing effect:', effect.id, ', from signal:', this.id);
     this.dependents.delete(effect);
   }
@@ -77,18 +76,18 @@ export class Effect {
   dependencies: Set<Signal> = new Set();
   constructor(cb: () => void) {
     this.id = nextId++;
-    DEBUG && console.log('creating effect:', this.id);
+    import.meta.DEBUG && console.log('creating effect:', this.id);
     this.operation = cb;
     this.run();
   }
   run() {
     effectStack.push(this);
-    DEBUG && console.log('running effect:', this.id);
+    import.meta.DEBUG && console.log('running effect:', this.id);
     this.operation();
     effectStack.pop();
   }
   register(signal: Signal) {
-    DEBUG &&
+    import.meta.DEBUG &&
       console.log(
         'registering signal:',
         signal.id,
@@ -98,12 +97,12 @@ export class Effect {
     this.dependencies.add(signal);
   }
   rerun() {
-    DEBUG && console.log('triggering rerun on effect:', this.id);
+    import.meta.DEBUG && console.log('triggering rerun on effect:', this.id);
     this.release();
     addToEffectQueue(this);
   }
   release() {
-    DEBUG && console.log('releasing effect', this.id);
+    import.meta.DEBUG && console.log('releasing effect', this.id);
     this.dependencies.forEach((signal) => {
       signal.release(this);
       this.dependencies.delete(signal);

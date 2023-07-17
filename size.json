@@ -1,12 +1,12 @@
 {
   "reactivity": {
     "minified": {
-      "pretty": "1.87 kB",
-      "raw": 1869
+      "pretty": "1.27 kB",
+      "raw": 1272
     },
     "brotli": {
-      "pretty": "682 B",
-      "raw": 682
+      "pretty": "561 B",
+      "raw": 561
     }
   }
 }

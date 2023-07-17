@@ -20,10 +20,11 @@ const bundleCode = async (pkg) => {
     plugins: [],
     define: {
       'import.meta.vitest': 'false',
+      'import.meta.DEBUG': 'false',
     },
     mainFields: ['module', 'main'],
   });
-  console.log(getSizes(outputFiles[0].contents));
+
   const { minified, brotli } = getSizes(outputFiles[0].contents);
   console.log(`${pkg}: Bundle: ${minified.pretty}, Brotli: ${brotli.pretty}`);
   return {

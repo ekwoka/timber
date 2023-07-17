@@ -18,6 +18,9 @@ const bundleCode = async (pkg) => {
     platform: 'browser',
     minify: true,
     plugins: [],
+    define: {
+      'import.meta.vitest': 'false',
+    },
     mainFields: ['module', 'main'],
   });
   console.log(getSizes(outputFiles[0].contents));

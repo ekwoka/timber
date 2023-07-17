@@ -284,5 +284,16 @@ if (import.meta.vitest) {
       await nextTick();
       expect(value).toBe(52);
     });
+    it('can handle reactive arrays', async () => {
+      const arr = reactive([0b1, 0b10, 0b100]);
+      let value = 0b0;
+      new Effect(() => {
+        value = arr.reduce((a, b) => a + b, 0);
+      });
+      expect(value).toBe(0b111);
+      arr.push(0b1000);
+      await nextTick();
+      expect(value).toBe(0b1111);
+    });
   });
 }

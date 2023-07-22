@@ -1,5 +1,11 @@
 import { nextTick } from './nextTick';
 
+declare global {
+  interface ImportMeta {
+    DEBUG: boolean;
+  }
+}
+
 let nextId = 1;
 export class Signal<T = unknown> {
   id: number;
@@ -122,22 +128,27 @@ export class Effect {
 const $PROXY = Symbol('$PROXY');
 const $RAW = Symbol('$RAW');
 const reactiveNodes = new WeakMap<object, Record<string, Signal>>();
-export const reactive = <T extends Record<string | number | symbol, unknown>>(
+// eslint-disable-next-line @typescript-eslint/ban-types
+const wrappableObjects: (Function | undefined)[] = [Array, Object, undefined];
+const isWrappable = (obj: object) => wrappableObjects.includes(obj.constructor);
+
+export const reactive = <
+  T extends (Record<string | number | symbol, unknown> | unknown[]) & {
+    $PROXY?: T;
+    $RAW?: T;
+  },
+>(
   obj: T,
 ): T => {
-  if (
-    typeof obj !== 'object' ||
-    obj === null ||
-    ![Array, Object, undefined].includes(obj.constructor)
-  )
-    return obj;
+  if (typeof obj !== 'object' || obj === null || !isWrappable(obj)) return obj;
   if ($PROXY in obj) return obj[$PROXY] as T;
   reactiveNodes.set(obj, Object.create(null));
   const wrapped = new Proxy(obj, {
     get(target, p: keyof T) {
       if (p === $RAW) return target;
-      if (p === $PROXY) return wrapped;
+      if (p === $PROXY) return target[$PROXY];
       if (!(p in target)) return undefined;
+      if (!Object.hasOwnProperty.call(target, p)) return target[p];
       const nodes = reactiveNodes.get(target) as { [key in keyof T]: Signal };
       if (!nodes) return undefined;
       if (p in nodes) return nodes[p].get();
@@ -173,7 +184,10 @@ export const reactive = <T extends Record<string | number | symbol, unknown>>(
     },
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  obj[$PROXY as any as keyof T] = wrapped as any;
+  Object.defineProperty(obj, $PROXY, {
+    enumerable: false,
+    value: wrapped,
+  });
 
   return wrapped as T;
 };

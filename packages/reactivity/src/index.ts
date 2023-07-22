@@ -50,16 +50,19 @@ export class Signal<T = unknown> {
 }
 
 let dontTrack = false;
-export const untrack = (cb: () => void) => {
+export const untrack = <T>(cb: () => T): T => {
   dontTrack = true;
-  cb();
+  const output = cb();
   dontTrack = false;
+  return output;
 };
 const effectStack: Effect[] = [];
 const effectQueue: Effect[] = [];
 let waitingForEffects = false;
 const addToEffectQueue = (effect: Effect) => {
-  effectQueue.push(effect);
+  const position = effectQueue.findIndex((e) => e.id > effect.id);
+  if (position > -1) effectQueue.splice(position, 0, effect);
+  else effectQueue.push(effect);
   if (waitingForEffects) return;
   waitingForEffects = true;
   queueMicrotask(processEffects);
@@ -98,29 +101,42 @@ export class Effect {
   }
   rerun() {
     import.meta.DEBUG && console.log('triggering rerun on effect:', this.id);
+    if (this === effectStack.at(-1)) return;
     this.release();
     addToEffectQueue(this);
   }
-  release() {
+  release(cleanUp?: boolean) {
     import.meta.DEBUG && console.log('releasing effect', this.id);
     this.dependencies.forEach((signal) => {
       signal.release(this);
       this.dependencies.delete(signal);
     });
+    if (cleanUp) this.operation = () => {};
+  }
+  dequeue() {
+    const idx = effectQueue.indexOf(this);
+    if (idx > -1) effectQueue.splice(idx, 1);
   }
 }
 
-const $PROXY = Symbol();
-const $RAW = Symbol();
+const $PROXY = Symbol('$PROXY');
+const $RAW = Symbol('$RAW');
 const reactiveNodes = new WeakMap<object, Record<string, Signal>>();
 export const reactive = <T extends Record<string | number | symbol, unknown>>(
   obj: T,
 ): T => {
+  if (
+    typeof obj !== 'object' ||
+    obj === null ||
+    ![Array, Object, undefined].includes(obj.constructor)
+  )
+    return obj;
   if ($PROXY in obj) return obj[$PROXY] as T;
   reactiveNodes.set(obj, Object.create(null));
   const wrapped = new Proxy(obj, {
     get(target, p: keyof T) {
       if (p === $RAW) return target;
+      if (p === $PROXY) return wrapped;
       if (!(p in target)) return undefined;
       const nodes = reactiveNodes.get(target) as { [key in keyof T]: Signal };
       if (!nodes) return undefined;
@@ -130,28 +146,45 @@ export const reactive = <T extends Record<string | number | symbol, unknown>>(
       return signal.get();
     },
     set(target, p: keyof T, newValue) {
+      if (import.meta.DEBUG)
+        console.log(
+          'setting',
+          p,
+          'to',
+          newValue,
+          target[p] === newValue ? 'SAME' : 'DIFFERENT',
+        );
       const nodes = reactiveNodes.get(target) as { [key in keyof T]: Signal };
       if (!nodes) return false;
       if (p in nodes) {
+        if (untrack(() => nodes[p].get()) === newValue) return true;
         nodes[p].set(
           typeof newValue === 'object' ? reactive(newValue) : newValue,
         );
-        return true;
+      } else {
+        const signal = wrap(target[p]);
+        nodes[p] = signal;
+        signal.set(
+          typeof newValue === 'object' ? reactive(newValue) : newValue,
+        );
       }
-      const signal = wrap(target[p]);
-      nodes[p] = signal;
-      signal.set(newValue);
       target[p] = newValue;
       return true;
     },
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  wrapped[$RAW as any as keyof T] = obj as any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   obj[$PROXY as any as keyof T] = wrapped as any;
 
   return wrapped as T;
 };
+
+// exports @vue/reactivity API
+export const effect = (cb: () => void) => new Effect(cb);
+export const release = (effect: Effect) => effect.release(true);
+export const stop = release;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const toRaw = <T>(obj: T): T => (obj as any)[$RAW];
+export type ReactiveEffect = Effect;
 
 const wrap = <T>(item: T): Signal<T> => {
   if (item instanceof Signal) return item;
@@ -294,6 +327,13 @@ if (import.meta.vitest) {
       arr.push(0b1000);
       await nextTick();
       expect(value).toBe(0b1111);
+    });
+  });
+  describe('alpine', () => {
+    it('doesnt wrap promises', async () => {
+      const promise = reactive(Promise.resolve(42));
+      expect(promise).toBeInstanceOf(Promise);
+      expect(await promise).toBe(42);
     });
   });
 }

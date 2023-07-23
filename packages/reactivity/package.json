@@ -3,13 +3,24 @@
   "version": "0.0.1",
   "description": "",
   "private": true,
+  "author": {
+    "name": "Eric Kwoka",
+    "email": "eric@thekwoka.com",
+    "url": "https://thekwoka.net/"
+  },
+  "license": "MIT",
   "exports": {
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./ts": {
+      "import": "./ts/index.ts"
+    },
     "./package.json": "./package.json"
   },
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "files": [
     "dist",
     "src"
@@ -23,8 +34,5 @@
     "prebuild": "rm -rf dist",
     "test": "vitest"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "devDependencies": {}
+  "keywords": []
 }

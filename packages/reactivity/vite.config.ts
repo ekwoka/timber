@@ -15,6 +15,7 @@ export default defineConfig({
   ],
   define: {
     'import.meta.vitest': 'undefined',
+    'import.meta.DEBUG': 'false',
   },
   build: {
     target: 'esnext',

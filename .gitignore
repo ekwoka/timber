@@ -3,3 +3,4 @@ dist
 testing
 coverage
 .DS_Store
+packages/alpinejs

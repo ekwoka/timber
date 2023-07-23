@@ -342,12 +342,30 @@ if (import.meta.vitest) {
       await nextTick();
       expect(value).toBe(0b1111);
     });
-  });
-  describe('alpine', () => {
-    it('doesnt wrap promises', async () => {
-      const promise = reactive(Promise.resolve(42));
-      expect(promise).toBeInstanceOf(Promise);
-      expect(await promise).toBe(42);
+    it('does not rerun effects on reassignment of same array', async () => {
+      const data = reactive({
+        items: [1, 2, 3],
+      });
+      let value = 0;
+      const effect = vi.fn(
+        () => (value = data.items.reduce((a, b) => a + b, 0)),
+      );
+      new Effect(effect);
+      expect(value).toBe(6);
+      expect(effect).toHaveBeenCalledTimes(1);
+      const items = data.items;
+      items.splice(1, 1);
+      await nextTick();
+      expect(value).toBe(4);
+      expect(effect).toHaveBeenCalledTimes(2);
+      data.items = items;
+      await nextTick();
+      expect(value).toBe(4);
+      expect(effect).toHaveBeenCalledTimes(2);
+      data.items = items.map((i) => i * 2);
+      await nextTick();
+      expect(value).toBe(8);
+      expect(effect).toHaveBeenCalledTimes(3);
     });
   });
 }

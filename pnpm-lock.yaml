@@ -82,6 +82,8 @@ importers:
         specifier: workspace:^
         version: link:../reactivity
 
+  packages/prisoner-reactivity: {}
+
   packages/reactivity: {}
 
 packages:

@@ -1,18 +1,13 @@
 {
-  "name": "@timber/reactivity-workshop",
+  "name": "@timber/reactivity",
   "version": "0.0.1",
   "description": "",
   "private": true,
-  "constributors": [
-    {
-      "name": "Eric Kwoka",
-      "email": "eric@thekwoka.com",
-      "url": "https://thekwoka.net/"
-    },
-    {
-      "name": "Prisoner"
-    }
-  ],
+  "author": {
+    "name": "Eric Kwoka",
+    "email": "eric@thekwoka.com",
+    "url": "https://thekwoka.net/"
+  },
   "license": "MIT",
   "exports": {
     ".": {

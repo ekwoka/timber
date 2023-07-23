@@ -8,5 +8,15 @@
       "pretty": "805 B",
       "raw": 805
     }
+  },
+  "alpinejs": {
+    "minified": {
+      "pretty": "33 kB",
+      "raw": 33014
+    },
+    "brotli": {
+      "pretty": "11.2 kB",
+      "raw": 11202
+    }
   }
 }

@@ -144,11 +144,13 @@ export const reactive = <
   if ($PROXY in obj) return obj[$PROXY] as T;
   reactiveNodes.set(obj, Object.create(null));
   const wrapped = new Proxy(obj, {
-    get(target, p: keyof T) {
+    get(target, p: keyof T, reciever) {
       if (p === $RAW) return target;
       if (p === $PROXY) return target[$PROXY];
       if (!(p in target)) return undefined;
       if (!Object.hasOwnProperty.call(target, p)) return target[p];
+      const descriptor = Object.getOwnPropertyDescriptor(target, p);
+      if (descriptor?.get) return descriptor.get.call(reciever);
       const nodes = reactiveNodes.get(target) as { [key in keyof T]: Signal };
       if (!nodes) return undefined;
       if (p in nodes) return nodes[p].get();
@@ -156,7 +158,7 @@ export const reactive = <
       nodes[p] = signal;
       return signal.get();
     },
-    set(target, p: keyof T, newValue) {
+    set(target, p: keyof T, newValue, reciever) {
       if (import.meta.DEBUG)
         console.log(
           'setting',
@@ -167,6 +169,11 @@ export const reactive = <
         );
       const nodes = reactiveNodes.get(target) as { [key in keyof T]: Signal };
       if (!nodes) return false;
+      const descriptor = Object.getOwnPropertyDescriptor(target, p);
+      if (descriptor?.set) {
+        descriptor.set.call(reciever, newValue);
+        return true;
+      }
       if (p in nodes) {
         if (untrack(() => nodes[p].get()) === newValue) return true;
         nodes[p].set(
@@ -366,6 +373,51 @@ if (import.meta.vitest) {
       await nextTick();
       expect(value).toBe(8);
       expect(effect).toHaveBeenCalledTimes(3);
+    });
+    it('can handle getters', async () => {
+      const data = reactive({
+        innerFoo: 42,
+        get foo() {
+          return this.innerFoo;
+        },
+      });
+      let value = 0;
+      new Effect(() => (value = data.foo));
+      expect(value).toBe(42);
+      data.innerFoo = 100;
+      await nextTick();
+      expect(value).toBe(100);
+    });
+    it('can handle setters', async () => {
+      const data = reactive({
+        innerFoo: 42,
+        set foo(value: number) {
+          this.innerFoo = value;
+        },
+      });
+      let value = 0;
+      new Effect(() => (value = data.innerFoo));
+      expect(value).toBe(42);
+      data.foo = 100;
+      await nextTick();
+      expect(value).toBe(100);
+    });
+    it('can handle getter/setter pairs', async () => {
+      const data = reactive({
+        innerFoo: 42,
+        get foo() {
+          return this.innerFoo;
+        },
+        set foo(value: number) {
+          this.innerFoo = value;
+        },
+      });
+      let value = 0;
+      new Effect(() => (value = data.foo));
+      expect(value).toBe(42);
+      data.foo = 100;
+      await nextTick();
+      expect(value).toBe(100);
     });
   });
 }

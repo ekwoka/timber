@@ -127,47 +127,47 @@ export class Effect {
 
 const $PROXY = Symbol('$PROXY');
 const $RAW = Symbol('$RAW');
-const reactiveNodes = new WeakMap<object, Record<string, Signal>>();
+const proxyMap = new WeakMap<object, object>();
+const reactiveNodes = new WeakMap<object, { [key: string | symbol]: Signal }>();
 // eslint-disable-next-line @typescript-eslint/ban-types
 const wrappableObjects: (Function | undefined)[] = [Array, Object, undefined];
 const isWrappable = (obj: object) => wrappableObjects.includes(obj.constructor);
 
-export const reactive = <
-  T extends (Record<string | number | symbol, unknown> | unknown[]) & {
-    $PROXY?: T;
-    $RAW?: T;
-  },
->(
-  obj: T,
-): T => {
+export const reactive = <T extends object>(obj: T): T => {
   if (typeof obj !== 'object' || obj === null || !isWrappable(obj)) return obj;
-  if ($PROXY in obj) return obj[$PROXY] as T;
+  if (proxyMap.has(obj)) return proxyMap.get(obj) as T;
+  if ($RAW in obj) return obj;
   reactiveNodes.set(obj, Object.create(null));
   const wrapped = new Proxy(obj, {
-    get(target, p: keyof T, reciever) {
+    has(target, p) {
+      if (p === $RAW) return true;
+      if (p === $PROXY) return true;
+      return Reflect.has(target, p);
+    },
+    get(target, p: string | symbol, reciever) {
       if (p === $RAW) return target;
-      if (p === $PROXY) return target[$PROXY];
+      if (p === $PROXY) return proxyMap.get(target);
       if (!(p in target)) return undefined;
-      if (!Object.hasOwnProperty.call(target, p)) return target[p];
+      if (!Object.hasOwnProperty.call(target, p)) return Reflect.get(target, p);
       const descriptor = Object.getOwnPropertyDescriptor(target, p);
       if (descriptor?.get) return descriptor.get.call(reciever);
-      const nodes = reactiveNodes.get(target) as { [key in keyof T]: Signal };
+      const nodes = reactiveNodes.get(target);
       if (!nodes) return undefined;
       if (p in nodes) return nodes[p].get();
-      const signal = wrap(target[p]);
+      const signal = wrap(Reflect.get(target, p));
       nodes[p] = signal;
       return signal.get();
     },
-    set(target, p: keyof T, newValue, reciever) {
+    set(target, p: string | symbol, newValue, reciever) {
       if (import.meta.DEBUG)
         console.log(
           'setting',
           p,
           'to',
           newValue,
-          target[p] === newValue ? 'SAME' : 'DIFFERENT',
+          Reflect.get(target, p) === newValue ? 'SAME' : 'DIFFERENT',
         );
-      const nodes = reactiveNodes.get(target) as { [key in keyof T]: Signal };
+      const nodes = reactiveNodes.get(target);
       if (!nodes) return false;
       const descriptor = Object.getOwnPropertyDescriptor(target, p);
       if (descriptor?.set) {
@@ -180,21 +180,22 @@ export const reactive = <
           typeof newValue === 'object' ? reactive(newValue) : newValue,
         );
       } else {
-        const signal = wrap(target[p]);
+        const signal = wrap(Reflect.get(target, p));
         nodes[p] = signal;
         signal.set(
           typeof newValue === 'object' ? reactive(newValue) : newValue,
         );
       }
-      target[p] = newValue;
+      Reflect.set(target, p, newValue);
       return true;
     },
   });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Object.defineProperty(obj, $PROXY, {
     enumerable: false,
+    configurable: false,
     value: wrapped,
   });
+  proxyMap.set(obj, wrapped);
 
   return wrapped as T;
 };
@@ -204,7 +205,7 @@ export const effect = (cb: () => void) => new Effect(cb);
 export const release = (effect: Effect) => effect.release(true);
 export const stop = release;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const toRaw = <T>(obj: T): T => (obj as any)[$RAW];
+export const toRaw = <T extends object>(obj: T): T => Reflect.get(obj, $RAW);
 export type ReactiveEffect = Effect;
 
 const wrap = <T>(item: T): Signal<T> => {
@@ -418,6 +419,38 @@ if (import.meta.vitest) {
       data.foo = 100;
       await nextTick();
       expect(value).toBe(100);
+    });
+    it('allows accessing the $PROXY on the passed in object', () => {
+      const obj = { value: 42 };
+      const proxy = reactive(obj);
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      expect(obj[$PROXY]).toBe(proxy);
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      expect(proxy[$PROXY]).toBe(proxy);
+    });
+    it('returns the same proxy when wrapping the same target', () => {
+      const obj = { value: 42 };
+      const proxy = reactive(obj);
+      expect(reactive(obj)).toBe(proxy);
+    });
+    it('recursivley wraps nested reactive objects', () => {
+      const obj = reactive({
+        foo: {
+          bar: 42,
+        },
+      });
+      const proxy = obj.foo;
+      expect(proxy).toBe(obj.foo);
+      expect(proxy.bar).toBe(42);
+      expect(proxy.bar).toBe(obj.foo.bar);
+    });
+    it('return self when object is already reactive', () => {
+      const obj = reactive({
+        foo: 42,
+      });
+      expect(reactive(obj)).toBe(obj);
     });
   });
 }

@@ -2,8 +2,10 @@ import { Signal } from './Signal';
 import { nextTick } from './nextTick';
 
 let nextId = 1 << 10;
+const noop = () => {};
 export class Effect {
   id: number;
+  [Symbol.toStringTag] = 'Effect';
   operation: () => void;
   dependencies: Set<Signal> = new Set();
   constructor(cb: () => void) {
@@ -40,7 +42,7 @@ export class Effect {
       signal.release(this);
       this.dependencies.delete(signal);
     });
-    if (cleanUp) this.operation = () => {};
+    if (cleanUp) this.operation = noop;
   }
   dequeue() {
     const idx = effectQueue.indexOf(this);
@@ -130,5 +132,7 @@ if (import.meta.vitest) {
       effect.run();
       expect(value).toBe(100);
     });
+    it('knows it is an Effect', () =>
+      expect(new Effect(() => {}).toString()).toBe('[object Effect]'));
   });
 }

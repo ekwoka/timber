@@ -3,8 +3,8 @@ import { Signal, untrack } from './Signal';
 import { nextTick } from './nextTick';
 import { MapTypes, isGetter, isMapType, isObject, isSetter } from './utils';
 
-const $PROXY = Symbol('$PROXY');
-const $RAW = Symbol('$RAW');
+const $PROXY = Symbol();
+const $RAW = Symbol();
 const proxyMap = new WeakMap<object, object>();
 const reactiveNodes = new WeakMap<object, Map<unknown, Signal>>();
 

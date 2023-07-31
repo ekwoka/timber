@@ -3,6 +3,7 @@ import { Effect, effectStack } from './Effect';
 let nextId = 1;
 export class Signal<T = unknown> {
   id: number;
+  [Symbol.toStringTag] = 'Signal';
   value: T;
   dependents: Set<Effect> = new Set();
   constructor(value: T) {
@@ -65,5 +66,7 @@ if (import.meta.vitest) {
       signal.set(42);
       expect(signal.get()).toBe(42);
     });
+    it('knows it is a Signal', () =>
+      expect(new Signal(1).toString()).toEqual('[object Signal]'));
   });
 }

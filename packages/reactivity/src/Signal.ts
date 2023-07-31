@@ -1,4 +1,5 @@
 import { Effect, effectStack } from './Effect';
+import { nextTick } from './nextTick';
 
 let nextId = 1;
 export class Signal<T = unknown> {
@@ -65,6 +66,22 @@ if (import.meta.vitest) {
       expect(signal.get()).toBe(1);
       signal.set(42);
       expect(signal.get()).toBe(42);
+    });
+    it('can untrack inside an effect', async () => {
+      const first = new Signal(5);
+      const second = new Signal(10);
+      let value: number = 0;
+      new Effect(() => {
+        const initial = first.get();
+        untrack(() => (value = initial + second.get()));
+      });
+      expect(value).toBe(15);
+      first.set(42);
+      await nextTick();
+      expect(value).toBe(52);
+      second.set(100);
+      await nextTick();
+      expect(value).toBe(52);
     });
     it('knows it is a Signal', () =>
       expect(new Signal(1).toString()).toEqual('[object Signal]'));

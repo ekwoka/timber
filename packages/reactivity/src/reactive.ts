@@ -127,6 +127,11 @@ const makeMapReactive = <T extends MapTypes>(obj: T): T => {
           );
           return receiver;
         };
+      if (p === 'has')
+        return (key: unknown) => {
+          const rawKey = toRaw(key);
+          return target.has(rawKey as object);
+        };
       return Reflect.get(target, p);
     },
   });
@@ -161,131 +166,6 @@ if (import.meta.vitest) {
       await nextTick();
       expect(value).toBe(0b110);
     });
-    it('handled nested reactive objects', async () => {
-      const info = reactive({
-        names: {
-          first: 'Foo',
-          last: 'Bar',
-        },
-      });
-      let value: string = '';
-      new Effect(() => (value = `${info.names.first} ${info.names.last}`));
-      expect(value).toBe('Foo Bar');
-      info.names.first = 'Fizz';
-      expect(value).toBe('Foo Bar');
-      expect(`${info.names.first} ${info.names.last}`).toBe('Fizz Bar');
-      info.names.last = 'Buzz';
-      expect(value).toBe('Foo Bar');
-      await nextTick();
-      expect(value).toBe('Fizz Buzz');
-      info.names = {
-        first: 'Peter',
-        last: 'Parker',
-      };
-      expect(value).toBe('Fizz Buzz');
-      await nextTick();
-      expect(value).toBe('Peter Parker');
-      info.names.last = 'Porker';
-      await nextTick();
-      expect(value).toBe('Peter Porker');
-    });
-    it('can untrack inside an effect', async () => {
-      const first = new Signal(5);
-      const second = new Signal(10);
-      let value: number = 0;
-      new Effect(() => {
-        const initial = first.get();
-        untrack(() => (value = initial + second.get()));
-      });
-      expect(value).toBe(15);
-      first.set(42);
-      await nextTick();
-      expect(value).toBe(52);
-      second.set(100);
-      await nextTick();
-      expect(value).toBe(52);
-    });
-    it('can handle reactive arrays', async () => {
-      const arr = reactive([0b1, 0b10, 0b100]);
-      let value = 0b0;
-      new Effect(() => {
-        value = arr.reduce((a, b) => a + b, 0);
-      });
-      expect(value).toBe(0b111);
-      arr.push(0b1000);
-      await nextTick();
-      expect(value).toBe(0b1111);
-    });
-    it('does not rerun effects on reassignment of same array', async () => {
-      const data = reactive({
-        items: [1, 2, 3],
-      });
-      let value = 0;
-      const effect = vi.fn(
-        () => (value = data.items.reduce((a, b) => a + b, 0)),
-      );
-      new Effect(effect);
-      expect(value).toBe(6);
-      expect(effect).toHaveBeenCalledTimes(1);
-      const items = data.items;
-      items.splice(1, 1);
-      await nextTick();
-      expect(value).toBe(4);
-      expect(effect).toHaveBeenCalledTimes(2);
-      data.items = items;
-      await nextTick();
-      expect(value).toBe(4);
-      expect(effect).toHaveBeenCalledTimes(2);
-      data.items = items.map((i) => i * 2);
-      await nextTick();
-      expect(value).toBe(8);
-      expect(effect).toHaveBeenCalledTimes(3);
-    });
-    it('can handle getters', async () => {
-      const data = reactive({
-        innerFoo: 42,
-        get foo() {
-          return this.innerFoo;
-        },
-      });
-      let value = 0;
-      new Effect(() => (value = data.foo));
-      expect(value).toBe(42);
-      data.innerFoo = 100;
-      await nextTick();
-      expect(value).toBe(100);
-    });
-    it('can handle setters', async () => {
-      const data = reactive({
-        innerFoo: 42,
-        set foo(value: number) {
-          this.innerFoo = value;
-        },
-      });
-      let value = 0;
-      new Effect(() => (value = data.innerFoo));
-      expect(value).toBe(42);
-      data.foo = 100;
-      await nextTick();
-      expect(value).toBe(100);
-    });
-    it('can handle getter/setter pairs', async () => {
-      const data = reactive({
-        innerFoo: 42,
-        get foo() {
-          return this.innerFoo;
-        },
-        set foo(value: number) {
-          this.innerFoo = value;
-        },
-      });
-      let value = 0;
-      new Effect(() => (value = data.foo));
-      expect(value).toBe(42);
-      data.foo = 100;
-      await nextTick();
-      expect(value).toBe(100);
-    });
     it('allows accessing the $PROXY on the passed in object', () => {
       const obj = { value: 42 };
       const proxy = reactive(obj);
@@ -308,69 +188,220 @@ if (import.meta.vitest) {
       const proxy = reactive(obj);
       expect(reactive(obj)).toBe(proxy);
     });
-    it('recursivley wraps nested reactive objects', () => {
-      const obj = reactive({
-        foo: {
-          bar: 42,
-        },
-      });
-      const proxy = obj.foo;
-      expect(proxy).toBe(obj.foo);
-      expect(proxy.bar).toBe(42);
-      expect(proxy.bar).toBe(obj.foo.bar);
-    });
     it('return self when object is already reactive', () => {
       const obj = reactive({
         foo: 42,
       });
       expect(reactive(obj)).toBe(obj);
     });
-    it('can handle Map', async () => {
-      const map = reactive(new Map());
-      map.set('foo', 42);
-      let value = 0;
-      new Effect(() => {
-        value = map.get('foo');
+    describe('objects', () => {
+      it('handles nested reactive objects', async () => {
+        const info = reactive({
+          names: {
+            first: 'Foo',
+            last: 'Bar',
+          },
+        });
+        let value: string = '';
+        new Effect(() => (value = `${info.names.first} ${info.names.last}`));
+        expect(value).toBe('Foo Bar');
+        info.names.first = 'Fizz';
+        expect(value).toBe('Foo Bar');
+        expect(`${info.names.first} ${info.names.last}`).toBe('Fizz Bar');
+        info.names.last = 'Buzz';
+        expect(value).toBe('Foo Bar');
+        await nextTick();
+        expect(value).toBe('Fizz Buzz');
+        info.names = {
+          first: 'Peter',
+          last: 'Parker',
+        };
+        expect(value).toBe('Fizz Buzz');
+        await nextTick();
+        expect(value).toBe('Peter Parker');
+        info.names.last = 'Porker';
+        await nextTick();
+        expect(value).toBe('Peter Porker');
       });
-      expect(value).toBe(42);
-      map.set('foo', 100);
-      expect(map.get('foo')).toBe(100);
-      await nextTick();
-      expect(value).toBe(100);
+      it('can handle getters', async () => {
+        const data = reactive({
+          innerFoo: 42,
+          get foo() {
+            return this.innerFoo;
+          },
+        });
+        let value = 0;
+        new Effect(() => (value = data.foo));
+        expect(value).toBe(42);
+        data.innerFoo = 100;
+        await nextTick();
+        expect(value).toBe(100);
+      });
+      it('can handle setters', async () => {
+        const data = reactive({
+          innerFoo: 42,
+          set foo(value: number) {
+            this.innerFoo = value;
+          },
+        });
+        let value = 0;
+        new Effect(() => (value = data.innerFoo));
+        expect(value).toBe(42);
+        data.foo = 100;
+        await nextTick();
+        expect(value).toBe(100);
+      });
+      it('can handle getter/setter pairs', async () => {
+        const data = reactive({
+          innerFoo: 42,
+          get foo() {
+            return this.innerFoo;
+          },
+          set foo(value: number) {
+            this.innerFoo = value;
+          },
+        });
+        let value = 0;
+        new Effect(() => (value = data.foo));
+        expect(value).toBe(42);
+        data.foo = 100;
+        await nextTick();
+        expect(value).toBe(100);
+      });
     });
-    it('can handle nested objects inside Map with object keys', async () => {
-      const map = reactive(new Map());
-      const key = { foo: 'bar' };
-      map.set(key, {
-        bar: 42,
+    describe('arrays', () => {
+      it('can handle reactive arrays', async () => {
+        const arr = reactive([0b1, 0b10, 0b100]);
+        let value = 0b0;
+        new Effect(() => {
+          value = arr.reduce((a, b) => a + b, 0);
+        });
+        expect(value).toBe(0b111);
+        arr.push(0b1000);
+        await nextTick();
+        expect(value).toBe(0b1111);
       });
-      let value = 0;
-      new Effect(() => {
-        value = map.get(key).bar;
+      it('does not rerun effects on reassignment of same array', async () => {
+        const data = reactive({
+          items: [1, 2, 3],
+        });
+        let value = 0;
+        const effect = vi.fn(
+          () => (value = data.items.reduce((a, b) => a + b, 0)),
+        );
+        new Effect(effect);
+        expect(value).toBe(6);
+        expect(effect).toHaveBeenCalledTimes(1);
+        const items = data.items;
+        items.splice(1, 1);
+        await nextTick();
+        expect(value).toBe(4);
+        expect(effect).toHaveBeenCalledTimes(2);
+        data.items = items;
+        await nextTick();
+        expect(value).toBe(4);
+        expect(effect).toHaveBeenCalledTimes(2);
+        data.items = items.map((i) => i * 2);
+        await nextTick();
+        expect(value).toBe(8);
+        expect(effect).toHaveBeenCalledTimes(3);
       });
-      expect(value).toBe(42);
-      map.get(key).bar = 100;
-      expect(map.get(key).bar).toBe(100);
-      await nextTick();
-      expect(value).toBe(100);
+      it('reacts to internal mutations', async () => {
+        const data = reactive([1, 2, 3]);
+        let first = 0;
+        let second = 0;
+        let third = 0;
+        new Effect(() => ([first, second, third] = data));
+        expect(first).toBe(1);
+        expect(second).toBe(2);
+        expect(third).toBe(3);
+        data.sort((a, b) => b - a);
+        await nextTick();
+        expect(first).toBe(3);
+        expect(second).toBe(2);
+        expect(third).toBe(1);
+      });
+      it('reacts to array length mutation', async () => {
+        const data = reactive([1, 2, 3]);
+        let value = 0;
+        new Effect(() => (value = data.reduce((a, b) => a + b, 0)));
+        expect(value).toBe(6);
+        data.length = 2;
+        await nextTick();
+        expect(value).toBe(3);
+        data.push(4);
+        await nextTick();
+        expect(value).toBe(7);
+        data.shift();
+        await nextTick();
+        expect(value).toBe(6);
+      });
     });
-    it('can get keys before the set', async () => {
-      const map = reactive(new Map());
-      const key = { foo: 'bar' };
-      let value = 0;
-      new Effect(() => {
-        value = map.get(key)?.bar;
+
+    describe('(Weak)Map', () => {
+      it('can handle Map', async () => {
+        const map = reactive(new Map());
+        map.set('foo', 42);
+        let value = 0;
+        new Effect(() => {
+          value = map.get('foo');
+        });
+        expect(value).toBe(42);
+        map.set('foo', 100);
+        expect(map.get('foo')).toBe(100);
+        await nextTick();
+        expect(value).toBe(100);
       });
-      expect(value).toBe(undefined);
-      map.set(key, {
-        bar: 42,
+      it('can handle nested objects inside Map with object keys', async () => {
+        const map = reactive(new Map());
+        const key = { foo: 'bar' };
+        map.set(key, {
+          bar: 42,
+        });
+        let value = 0;
+        new Effect(() => {
+          value = map.get(key).bar;
+        });
+        expect(value).toBe(42);
+        map.get(key).bar = 100;
+        expect(map.get(key).bar).toBe(100);
+        await nextTick();
+        expect(value).toBe(100);
       });
-      await nextTick();
-      expect(value).toBe(42);
-      map.get(key).bar = 100;
-      expect(map.get(key).bar).toBe(100);
-      await nextTick();
-      expect(value).toBe(100);
+      it('can get keys before they are set', async () => {
+        const map = reactive(new Map());
+        const key = { foo: 'bar' };
+        let value = 0;
+        new Effect(() => {
+          value = map.get(key)?.bar;
+        });
+        expect(value).toBe(undefined);
+        map.set(key, {
+          bar: 42,
+        });
+        await nextTick();
+        expect(value).toBe(42);
+        map.get(key).bar = 100;
+        expect(map.get(key).bar).toBe(100);
+        await nextTick();
+        expect(value).toBe(100);
+      });
+      it('can safely use reactive objects as keys', () => {
+        const map = reactive(new Map());
+        const rawKey = { foo: 'bar' };
+        const key = reactive(rawKey);
+        map.set(key, 42);
+        expect(map.get(key)).toBe(42);
+        expect(map.get(rawKey)).toBe(42);
+      });
+      it('can check if a key is present', () => {
+        const map = reactive(new Map());
+        const rawKey = { foo: 'bar' };
+        const key = reactive(rawKey);
+        expect(map.has(key)).toBe(false);
+        map.set(key, 42);
+        expect(map.has(rawKey)).toBe(true);
+      });
     });
   });
 }

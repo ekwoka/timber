@@ -1,28 +1,16 @@
 import { Effect } from './Effect';
 import { Signal, untrack } from './Signal';
 import { nextTick } from './nextTick';
+import { MapTypes, isGetter, isMapType, isObject, isSetter } from './utils';
 
 const $PROXY = Symbol('$PROXY');
 const $RAW = Symbol('$RAW');
 const proxyMap = new WeakMap<object, object>();
 const reactiveNodes = new WeakMap<object, Map<unknown, Signal>>();
-// eslint-disable-next-line @typescript-eslint/ban-types
-const nonWrappable: unknown[] = [
-  undefined,
-  null,
-  'number',
-  'string',
-  'bigint',
-  'boolean',
-  'symbol',
-  'function',
-];
-const notWrappable = (obj: object) => !nonWrappable.includes(typeof obj);
 
 export const reactive = <T extends object>(obj: T): T => {
   const rawObj = toRaw(obj);
-  if (typeof rawObj !== 'object' || rawObj === null || !notWrappable(rawObj))
-    return rawObj;
+  if (!isObject(rawObj)) return rawObj;
   if (proxyMap.has(rawObj)) return proxyMap.get(rawObj) as T;
   if (isMapType(rawObj)) return makeMapReactive(rawObj);
   return makeDefaultReactive(rawObj);
@@ -146,12 +134,6 @@ const makeMapReactive = <T extends MapTypes>(obj: T): T => {
   return wrapped as T;
 };
 
-type MapTypes = Map<unknown, unknown> | WeakMap<object, unknown>;
-
-const isMapType = (obj: unknown): obj is MapTypes => {
-  return obj instanceof Map || obj instanceof WeakMap;
-};
-
 const wrap = <T>(item: T): Signal<T> => {
   if (item instanceof Signal) return item;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -164,17 +146,6 @@ const wrap = <T>(item: T): Signal<T> => {
 export const toRaw = <T>(obj: T): T =>
   isObject(obj) ? Reflect.get(obj, $RAW) ?? obj : obj;
 
-const isObject = (obj: unknown): obj is object =>
-  typeof obj === 'object' && obj !== null;
-
-const isSetter = (obj: object, key: string | symbol): boolean => {
-  const descriptor = Object.getOwnPropertyDescriptor(obj, key);
-  return !!descriptor?.set;
-};
-const isGetter = (obj: object, key: string | symbol): boolean => {
-  const descriptor = Object.getOwnPropertyDescriptor(obj, key);
-  return !!descriptor?.get;
-};
 if (import.meta.vitest) {
   describe('reactive', () => {
     it('can create reactive objects', async () => {

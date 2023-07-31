@@ -1,22 +1,22 @@
 {
   "reactivity": {
     "minified": {
-      "pretty": "2.86 kB",
-      "raw": 2859
+      "pretty": "2.97 kB",
+      "raw": 2966
     },
     "brotli": {
-      "pretty": "1.11 kB",
-      "raw": 1114
+      "pretty": "1.14 kB",
+      "raw": 1139
     }
   },
   "alpinejs": {
     "minified": {
-      "pretty": "34.1 kB",
-      "raw": 34092
+      "pretty": "34.2 kB",
+      "raw": 34199
     },
     "brotli": {
       "pretty": "11.5 kB",
-      "raw": 11486
+      "raw": 11514
     }
   }
 }

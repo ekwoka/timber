@@ -137,8 +137,20 @@ const makeMapReactive = <T extends MapTypes>(obj: T): T => {
           const rawKey = toRaw(key);
           const nodes = reactiveNodes.get(target);
           if (!nodes) return target.delete(rawKey as object);
-          if (nodes.has(rawKey)) nodes.get(rawKey)?.set(undefined);
+          if (nodes.has(rawKey)) {
+            nodes.get(rawKey)?.set(undefined);
+            nodes.delete(rawKey);
+          }
           return target.delete(rawKey as object);
+        };
+      if (p === 'clear')
+        return () => {
+          const nodes = reactiveNodes.get(target);
+          if (nodes) {
+            nodes.forEach((node) => node.set(undefined));
+            nodes.clear();
+          }
+          return (target as Map<unknown, unknown>).clear();
         };
       return Reflect.get(target, p);
     },
@@ -426,6 +438,35 @@ if (import.meta.vitest) {
         expect(map.has(key)).toBe(false);
         expect(map.get(key)).toBe(undefined);
         expect(value).toBe(undefined);
+        map.set(key, 69);
+        await nextTick();
+        expect(map.get(key)).toBe(69);
+        expect(map.has(key)).toBe(true);
+        expect(value).toBe(69);
+      });
+      it('.clear: can clear all pairs', async () => {
+        const map = reactive(new Map());
+        const key1 = 'foo';
+        const key2 = 'bar';
+        let value = 0;
+        new Effect(() => (value = map.get(key1) + map.get(key2)));
+        map.set(key1, 42);
+        map.set(key2, 69);
+        await nextTick();
+        expect(map.has(key1)).toBe(true);
+        expect(map.has(key2)).toBe(true);
+        expect(value).toBe(111);
+        map.clear();
+        await nextTick();
+        expect(map.has(key1)).toBe(false);
+        expect(map.has(key2)).toBe(false);
+        expect(value).toBe(NaN);
+        map.set(key1, 420);
+        map.set(key2, 69);
+        await nextTick();
+        expect(map.has(key1)).toBe(true);
+        expect(map.has(key2)).toBe(true);
+        expect(value).toBe(489);
       });
     });
   });

@@ -5,16 +5,31 @@ import { nextTick } from './nextTick';
 const $PROXY = Symbol('$PROXY');
 const $RAW = Symbol('$RAW');
 const proxyMap = new WeakMap<object, object>();
-const reactiveNodes = new WeakMap<object, { [key: string | symbol]: Signal }>();
+const reactiveNodes = new WeakMap<object, Map<unknown, Signal>>();
 // eslint-disable-next-line @typescript-eslint/ban-types
-const wrappableObjects: (Function | undefined)[] = [Array, Object, undefined];
-const isWrappable = (obj: object) => wrappableObjects.includes(obj.constructor);
+const nonWrappable: unknown[] = [
+  undefined,
+  null,
+  'number',
+  'string',
+  'bigint',
+  'boolean',
+  'symbol',
+  'function',
+];
+const notWrappable = (obj: object) => !nonWrappable.includes(typeof obj);
 
 export const reactive = <T extends object>(obj: T): T => {
-  if (typeof obj !== 'object' || obj === null || !isWrappable(obj)) return obj;
-  if (proxyMap.has(obj)) return proxyMap.get(obj) as T;
-  if ($RAW in obj) return obj;
-  reactiveNodes.set(obj, Object.create(null));
+  const rawObj = toRaw(obj);
+  if (typeof rawObj !== 'object' || rawObj === null || !notWrappable(rawObj))
+    return rawObj;
+  if (proxyMap.has(rawObj)) return proxyMap.get(rawObj) as T;
+  if (isMapType(rawObj)) return makeMapReactive(rawObj);
+  return makeDefaultReactive(rawObj);
+};
+
+const makeDefaultReactive = <T extends object>(obj: T): T => {
+  reactiveNodes.set(obj, new Map<string | symbol, Signal<unknown>>());
   const wrapped = new Proxy(obj, {
     has(target, p) {
       if (p === $RAW) return true;
@@ -25,14 +40,17 @@ export const reactive = <T extends object>(obj: T): T => {
       if (p === $RAW) return target;
       if (p === $PROXY) return proxyMap.get(target);
       if (!(p in target)) return undefined;
-      if (!Object.hasOwnProperty.call(target, p)) return Reflect.get(target, p);
-      const descriptor = Object.getOwnPropertyDescriptor(target, p);
-      if (descriptor?.get) return descriptor.get.call(reciever);
+
+      if (!Object.hasOwnProperty.call(target, p))
+        return Reflect.get(target, p, reciever);
+
+      if (isGetter(target, p)) return Reflect.get(target, p, reciever);
+
       const nodes = reactiveNodes.get(target);
       if (!nodes) return undefined;
-      if (p in nodes) return nodes[p].get();
+      if (nodes.has(p)) return nodes.get(p)?.get();
       const signal = wrap(Reflect.get(target, p));
-      nodes[p] = signal;
+      nodes.set(p, signal);
       return signal.get();
     },
     set(target, p: string | symbol, newValue, reciever) {
@@ -46,25 +64,21 @@ export const reactive = <T extends object>(obj: T): T => {
         );
       const nodes = reactiveNodes.get(target);
       if (!nodes) return false;
-      const descriptor = Object.getOwnPropertyDescriptor(target, p);
-      if (descriptor?.set) {
-        descriptor.set.call(reciever, newValue);
-        return true;
-      }
-      if (p in nodes) {
-        if (untrack(() => nodes[p].get()) === newValue) return true;
-        nodes[p].set(
-          typeof newValue === 'object' ? reactive(newValue) : newValue,
-        );
+
+      if (isSetter(target, p))
+        return Reflect.set(target, p, newValue, reciever);
+
+      if (nodes.has(p)) {
+        if (untrack(() => nodes.get(p)?.get()) === newValue) return true;
+        nodes.get(p)?.set(isObject(newValue) ? reactive(newValue) : newValue);
       } else {
         const signal = wrap(Reflect.get(target, p));
-        nodes[p] = signal;
+        nodes.set(p, signal);
         signal.set(
           typeof newValue === 'object' ? reactive(newValue) : newValue,
         );
       }
-      Reflect.set(target, p, newValue);
-      return true;
+      return Reflect.set(target, p, newValue);
     },
   });
   Object.defineProperty(obj, $PROXY, {
@@ -77,6 +91,67 @@ export const reactive = <T extends object>(obj: T): T => {
   return wrapped as T;
 };
 
+const makeMapReactive = <T extends MapTypes>(obj: T): T => {
+  reactiveNodes.set(
+    obj,
+    obj instanceof Map
+      ? new Map()
+      : (new WeakMap() as Map<unknown, Signal<unknown>>),
+  );
+  const wrapped = new Proxy(obj, {
+    get(target, p, receiver) {
+      if (p === 'get')
+        return (key: unknown) => {
+          const rawKey = toRaw(key);
+          const nodes = reactiveNodes.get(target);
+          const rawValue = target.get(rawKey as object);
+          if (!nodes) return rawValue;
+          if (nodes.has(rawKey)) return nodes.get(rawKey)?.get();
+          const signal = wrap(rawValue);
+          nodes.set(rawKey, signal);
+          return signal.get();
+        };
+      if (p === 'set')
+        return (...kv: unknown[]) => {
+          const [rawKey, rawValue] = kv.map(toRaw);
+          const nodes = reactiveNodes.get(target);
+          if (!nodes) {
+            target.set(rawKey as object, rawValue);
+            return receiver;
+          }
+          if (nodes.has(rawKey)) {
+            if (
+              !untrack(() =>
+                Object.is(toRaw(nodes.get(rawKey)?.get()), rawValue),
+              )
+            )
+              nodes
+                .get(rawKey)
+                ?.set(isObject(rawValue) ? reactive(rawValue) : rawValue);
+            target.set(rawKey as object, rawValue);
+            return receiver;
+          }
+          const signal = wrap(rawValue);
+          nodes.set(rawKey, signal);
+          target.set(
+            rawKey as object,
+            untrack(() => signal.get()),
+          );
+          return receiver;
+        };
+      return Reflect.get(target, p);
+    },
+  });
+  proxyMap.set(obj, wrapped);
+  return wrapped as T;
+};
+
+type MapTypes = Map<unknown, unknown> | WeakMap<object, unknown>;
+
+const isMapType = (obj: unknown): obj is MapTypes => {
+  return obj instanceof Map || obj instanceof WeakMap;
+};
+
 const wrap = <T>(item: T): Signal<T> => {
   if (item instanceof Signal) return item;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -86,8 +161,20 @@ const wrap = <T>(item: T): Signal<T> => {
   return new Signal(item);
 };
 
-export const toRaw = <T extends object>(obj: T): T => Reflect.get(obj, $RAW);
+export const toRaw = <T>(obj: T): T =>
+  isObject(obj) ? Reflect.get(obj, $RAW) ?? obj : obj;
 
+const isObject = (obj: unknown): obj is object =>
+  typeof obj === 'object' && obj !== null;
+
+const isSetter = (obj: object, key: string | symbol): boolean => {
+  const descriptor = Object.getOwnPropertyDescriptor(obj, key);
+  return !!descriptor?.set;
+};
+const isGetter = (obj: object, key: string | symbol): boolean => {
+  const descriptor = Object.getOwnPropertyDescriptor(obj, key);
+  return !!descriptor?.get;
+};
 if (import.meta.vitest) {
   describe('reactive', () => {
     it('can create reactive objects', async () => {
@@ -266,6 +353,53 @@ if (import.meta.vitest) {
         foo: 42,
       });
       expect(reactive(obj)).toBe(obj);
+    });
+    it('can handle Map', async () => {
+      const map = reactive(new Map());
+      map.set('foo', 42);
+      let value = 0;
+      new Effect(() => {
+        value = map.get('foo');
+      });
+      expect(value).toBe(42);
+      map.set('foo', 100);
+      expect(map.get('foo')).toBe(100);
+      await nextTick();
+      expect(value).toBe(100);
+    });
+    it('can handle nested objects inside Map with object keys', async () => {
+      const map = reactive(new Map());
+      const key = { foo: 'bar' };
+      map.set(key, {
+        bar: 42,
+      });
+      let value = 0;
+      new Effect(() => {
+        value = map.get(key).bar;
+      });
+      expect(value).toBe(42);
+      map.get(key).bar = 100;
+      expect(map.get(key).bar).toBe(100);
+      await nextTick();
+      expect(value).toBe(100);
+    });
+    it('can get keys before the set', async () => {
+      const map = reactive(new Map());
+      const key = { foo: 'bar' };
+      let value = 0;
+      new Effect(() => {
+        value = map.get(key)?.bar;
+      });
+      expect(value).toBe(undefined);
+      map.set(key, {
+        bar: 42,
+      });
+      await nextTick();
+      expect(value).toBe(42);
+      map.get(key).bar = 100;
+      expect(map.get(key).bar).toBe(100);
+      await nextTick();
+      expect(value).toBe(100);
     });
   });
 }

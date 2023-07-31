@@ -56,3 +56,14 @@ export const untrack = <T>(cb: () => T): T => {
   dontTrack = false;
   return output;
 };
+
+if (import.meta.vitest) {
+  describe('Signal', () => {
+    it('wraps values with Signal', () => {
+      const signal = new Signal(1);
+      expect(signal.get()).toBe(1);
+      signal.set(42);
+      expect(signal.get()).toBe(42);
+    });
+  });
+}

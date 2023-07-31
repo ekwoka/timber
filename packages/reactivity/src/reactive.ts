@@ -132,6 +132,14 @@ const makeMapReactive = <T extends MapTypes>(obj: T): T => {
           const rawKey = toRaw(key);
           return target.has(rawKey as object);
         };
+      if (p === 'delete')
+        return (key: unknown) => {
+          const rawKey = toRaw(key);
+          const nodes = reactiveNodes.get(target);
+          if (!nodes) return target.delete(rawKey as object);
+          if (nodes.has(rawKey)) nodes.get(rawKey)?.set(undefined);
+          return target.delete(rawKey as object);
+        };
       return Reflect.get(target, p);
     },
   });
@@ -394,13 +402,30 @@ if (import.meta.vitest) {
         expect(map.get(key)).toBe(42);
         expect(map.get(rawKey)).toBe(42);
       });
-      it('can check if a key is present', () => {
+      it('.has: can check if a key is present', () => {
         const map = reactive(new Map());
         const rawKey = { foo: 'bar' };
         const key = reactive(rawKey);
         expect(map.has(key)).toBe(false);
         map.set(key, 42);
         expect(map.has(rawKey)).toBe(true);
+      });
+      it('.delete: can delete a key', async () => {
+        const map = reactive(new Map());
+        let value = 0;
+        const key = 'foo';
+        new Effect(() => (value = map.get(key)));
+        expect(value).toBe(undefined);
+        map.set(key, 42);
+        await nextTick();
+        expect(map.get(key)).toBe(42);
+        expect(map.has(key)).toBe(true);
+        expect(value).toBe(42);
+        map.delete(key);
+        await nextTick();
+        expect(map.has(key)).toBe(false);
+        expect(map.get(key)).toBe(undefined);
+        expect(value).toBe(undefined);
       });
     });
   });

@@ -1,12 +1,13 @@
 import { Effect } from './Effect';
 import { Signal, untrack } from './Signal';
+import { makeMapReactive } from './collectionMethods';
 import { nextTick } from './nextTick';
-import { MapTypes, isGetter, isMapType, isObject, isSetter } from './utils';
+import { isGetter, isMapType, isObject, isSetter } from './utils';
 
-const $PROXY = Symbol();
-const $RAW = Symbol();
-const proxyMap = new WeakMap<object, object>();
-const reactiveNodes = new WeakMap<object, Map<unknown, Signal>>();
+export const $PROXY = Symbol('$PROXY');
+export const $RAW = Symbol('$RAW');
+export const proxyMap = new WeakMap<object, object>();
+export const reactiveNodes = new WeakMap<object, Map<unknown, Signal>>();
 
 export const reactive = <T extends object>(obj: T): T => {
   const rawObj = toRaw(obj);
@@ -18,57 +19,7 @@ export const reactive = <T extends object>(obj: T): T => {
 
 const makeDefaultReactive = <T extends object>(obj: T): T => {
   reactiveNodes.set(obj, new Map<string | symbol, Signal<unknown>>());
-  const wrapped = new Proxy(obj, {
-    has(target, p) {
-      if (p === $RAW) return true;
-      if (p === $PROXY) return true;
-      return Reflect.has(target, p);
-    },
-    get(target, p: string | symbol, reciever) {
-      if (p === $RAW) return target;
-      if (p === $PROXY) return proxyMap.get(target);
-      if (!(p in target)) return undefined;
-
-      if (!Object.hasOwnProperty.call(target, p))
-        return Reflect.get(target, p, reciever);
-
-      if (isGetter(target, p)) return Reflect.get(target, p, reciever);
-
-      const nodes = reactiveNodes.get(target);
-      if (!nodes) return undefined;
-      if (nodes.has(p)) return nodes.get(p)?.get();
-      const signal = wrap(Reflect.get(target, p));
-      nodes.set(p, signal);
-      return signal.get();
-    },
-    set(target, p: string | symbol, newValue, reciever) {
-      if (import.meta.DEBUG)
-        console.log(
-          'setting',
-          p,
-          'to',
-          newValue,
-          Reflect.get(target, p) === newValue ? 'SAME' : 'DIFFERENT',
-        );
-      const nodes = reactiveNodes.get(target);
-      if (!nodes) return false;
-
-      if (isSetter(target, p))
-        return Reflect.set(target, p, newValue, reciever);
-
-      if (nodes.has(p)) {
-        if (untrack(() => nodes.get(p)?.get()) === newValue) return true;
-        nodes.get(p)?.set(isObject(newValue) ? reactive(newValue) : newValue);
-      } else {
-        const signal = wrap(Reflect.get(target, p));
-        nodes.set(p, signal);
-        signal.set(
-          typeof newValue === 'object' ? reactive(newValue) : newValue,
-        );
-      }
-      return Reflect.set(target, p, newValue);
-    },
-  });
+  const wrapped = new Proxy(obj, defaultTraps);
   Object.defineProperty(obj, $PROXY, {
     enumerable: false,
     configurable: false,
@@ -79,92 +30,63 @@ const makeDefaultReactive = <T extends object>(obj: T): T => {
   return wrapped as T;
 };
 
-const makeMapReactive = <T extends MapTypes>(obj: T): T => {
-  reactiveNodes.set(
-    obj,
-    obj instanceof Map
-      ? new Map()
-      : (new WeakMap() as Map<unknown, Signal<unknown>>),
-  );
-  const wrapped = new Proxy(obj, {
-    get(target, p, receiver) {
-      if (p === 'get')
-        return (key: unknown) => {
-          const rawKey = toRaw(key);
-          const nodes = reactiveNodes.get(target);
-          const rawValue = target.get(rawKey as object);
-          if (!nodes) return rawValue;
-          if (nodes.has(rawKey)) return nodes.get(rawKey)?.get();
-          const signal = wrap(rawValue);
-          nodes.set(rawKey, signal);
-          return signal.get();
-        };
-      if (p === 'set')
-        return (...kv: unknown[]) => {
-          const [rawKey, rawValue] = kv.map(toRaw);
-          const nodes = reactiveNodes.get(target);
-          if (!nodes) {
-            target.set(rawKey as object, rawValue);
-            return receiver;
-          }
-          if (nodes.has(rawKey)) {
-            if (
-              !untrack(() =>
-                Object.is(toRaw(nodes.get(rawKey)?.get()), rawValue),
-              )
-            )
-              nodes
-                .get(rawKey)
-                ?.set(isObject(rawValue) ? reactive(rawValue) : rawValue);
-            target.set(rawKey as object, rawValue);
-            return receiver;
-          }
-          const signal = wrap(rawValue);
-          nodes.set(rawKey, signal);
-          target.set(
-            rawKey as object,
-            untrack(() => signal.get()),
-          );
-          return receiver;
-        };
-      if (p === 'has')
-        return (key: unknown) => {
-          const rawKey = toRaw(key);
-          return target.has(rawKey as object);
-        };
-      if (p === 'delete')
-        return (key: unknown) => {
-          const rawKey = toRaw(key);
-          const nodes = reactiveNodes.get(target);
-          if (!nodes) return target.delete(rawKey as object);
-          if (nodes.has(rawKey)) {
-            nodes.get(rawKey)?.set(undefined);
-            nodes.delete(rawKey);
-          }
-          return target.delete(rawKey as object);
-        };
-      if (p === 'clear')
-        return () => {
-          const nodes = reactiveNodes.get(target);
-          if (nodes) {
-            nodes.forEach((node) => node.set(undefined));
-            nodes.clear();
-          }
-          return (target as Map<unknown, unknown>).clear();
-        };
-      return Reflect.get(target, p);
-    },
-  });
-  proxyMap.set(obj, wrapped);
-  return wrapped as T;
+const defaultTraps = {
+  has<T extends object>(target: T, p: string | symbol) {
+    if (p === $RAW) return true;
+    if (p === $PROXY) return true;
+    return Reflect.has(target, p);
+  },
+  get<T extends object>(target: T, p: string | symbol, reciever: T) {
+    if (p === $RAW) return target;
+    if (p === $PROXY) return proxyMap.get(target);
+    if (!(p in target)) return undefined;
+
+    if (!Object.hasOwnProperty.call(target, p))
+      return Reflect.get(target, p, reciever);
+
+    if (isGetter(target, p)) return Reflect.get(target, p, reciever);
+
+    const nodes = reactiveNodes.get(target);
+    if (!nodes) return undefined;
+    if (nodes.has(p)) return nodes.get(p)?.get();
+    const signal = wrap(Reflect.get(target, p));
+    nodes.set(p, signal);
+    return signal.get();
+  },
+  set<T extends object>(
+    target: T,
+    p: string | symbol,
+    newValue: unknown,
+    reciever: T,
+  ) {
+    if (import.meta.DEBUG)
+      console.log(
+        'setting',
+        p,
+        'to',
+        newValue,
+        Reflect.get(target, p) === newValue ? 'SAME' : 'DIFFERENT',
+      );
+    const nodes = reactiveNodes.get(target);
+    if (!nodes) return false;
+
+    if (isSetter(target, p)) return Reflect.set(target, p, newValue, reciever);
+
+    if (nodes.has(p)) {
+      if (untrack(() => nodes.get(p)?.get()) === newValue) return true;
+      nodes.get(p)?.set(isObject(newValue) ? reactive(newValue) : newValue);
+    } else {
+      const signal = wrap(Reflect.get(target, p));
+      nodes.set(p, signal);
+      signal.set(isObject(newValue) ? reactive(newValue) : newValue);
+    }
+    return Reflect.set(target, p, newValue);
+  },
 };
 
-const wrap = <T>(item: T): Signal<T> => {
+export const wrap = <T>(item: T): Signal<T> => {
   if (item instanceof Signal) return item;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (typeof item === 'object' && item !== null)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return new Signal(reactive(item as any));
+  if (isObject(item)) return new Signal(reactive(item));
   return new Signal(item);
 };
 

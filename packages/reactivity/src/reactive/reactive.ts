@@ -1,13 +1,11 @@
-import { Effect } from './Effect';
-import { Signal, untrack } from './Signal';
+import { Effect } from '../Effect';
+import { Signal, untrack } from '../Signal';
+import { nextTick } from '../nextTick';
+import { isGetter, isMapType, isObject, isSetter } from '../utils';
 import { makeMapReactive } from './collectionMethods';
-import { nextTick } from './nextTick';
-import { isGetter, isMapType, isObject, isSetter } from './utils';
-
-export const $PROXY = Symbol('$PROXY');
-export const $RAW = Symbol('$RAW');
-export const proxyMap = new WeakMap<object, object>();
-export const reactiveNodes = new WeakMap<object, Map<unknown, Signal>>();
+import { proxyMap } from './proxyMap';
+import { reactiveNodes } from './reactiveNodes';
+import { $PROXY, $RAW } from './symbols';
 
 export const reactive = <T extends object>(obj: T): T => {
   const rawObj = toRaw(obj);
@@ -59,14 +57,6 @@ const defaultTraps = {
     newValue: unknown,
     reciever: T,
   ) {
-    if (import.meta.DEBUG)
-      console.log(
-        'setting',
-        p,
-        'to',
-        newValue,
-        Reflect.get(target, p) === newValue ? 'SAME' : 'DIFFERENT',
-      );
     const nodes = reactiveNodes.get(target);
     if (!nodes) return false;
 

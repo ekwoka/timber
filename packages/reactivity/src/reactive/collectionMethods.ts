@@ -1,14 +1,9 @@
-import { Signal, untrack } from './Signal';
-import {
-  $PROXY,
-  $RAW,
-  proxyMap,
-  reactive,
-  reactiveNodes,
-  toRaw,
-  wrap,
-} from './reactive';
-import { MapTypes, isObject } from './utils';
+import { Signal, untrack } from '../Signal';
+import { reactive, toRaw, wrap } from '../reactive';
+import { MapTypes, isObject } from '../utils';
+import { proxyMap } from './proxyMap';
+import { reactiveNodes } from './reactiveNodes';
+import { $PROXY, $RAW } from './symbols';
 
 export const makeMapReactive = <T extends MapTypes>(obj: T): T => {
   reactiveNodes.set(

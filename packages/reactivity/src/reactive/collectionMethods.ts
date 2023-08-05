@@ -1,7 +1,7 @@
 import { Signal, untrack } from '../Signal';
-import { reactive, toRaw, wrap } from '../reactive';
-import { MapTypes, isObject } from '../utils';
+import { MapTypes, hasOwn, isObject } from '../utils';
 import { proxyMap } from './proxyMap';
+import { reactive, toRaw, wrap } from './reactive';
 import { reactiveNodes } from './reactiveNodes';
 import { $PROXY, $RAW } from './symbols';
 
@@ -18,28 +18,32 @@ export const makeMapReactive = <T extends MapTypes>(obj: T): T => {
 };
 
 const collectionTraps: ProxyHandler<MapTypes> = {
-  get(target, p) {
+  get(target, p, receiever) {
     if (p === $RAW) return target;
     if (p === $PROXY) return proxyMap.get(target);
-    if (Object.hasOwnProperty.call(collectionMethods, p) && p in target)
-      return Reflect.get(collectionMethods, p);
-    return Reflect.get(target, p);
+    return Reflect.get(
+      hasOwn(collectionMethods, p) && p in target ? collectionMethods : target,
+      p,
+      receiever,
+    );
   },
 };
 
-const collectionMethods = {
+const collectionMethods: Partial<
+  Map<unknown, unknown> & WeakMap<object, unknown>
+> = {
   get(this: MapTypes, key: unknown) {
     const target = toRaw(this);
     const rawKey = toRaw(key);
     const nodes = reactiveNodes.get(target);
     const rawValue = target.get(rawKey as object);
     if (!nodes) return rawValue;
-    if (nodes.has(rawKey)) return nodes.get(rawKey)?.get();
+    if (nodes.has(rawKey)) return nodes.get(rawKey)!.get();
     const signal = wrap(rawValue);
     nodes.set(rawKey, signal);
     return signal.get();
   },
-  set(this: MapTypes, ...kv: [unknown, unknown]) {
+  set<T extends MapTypes>(this: T, ...kv: [unknown, unknown]) {
     const target = toRaw(this);
     const [rawKey, rawValue] = kv.map(toRaw);
     const nodes = reactiveNodes.get(target);
@@ -78,13 +82,17 @@ const collectionMethods = {
     }
     return target.delete(rawKey as object);
   },
-  clear(this: MapTypes) {
+  clear(this: Map<unknown, unknown>) {
     const target = toRaw(this);
     const nodes = reactiveNodes.get(target);
     if (nodes) {
       nodes.forEach((node) => node.set(undefined));
       nodes.clear();
     }
-    return (target as Map<unknown, unknown>).clear();
+    return target.clear();
+  },
+  get size() {
+    const target = toRaw(this);
+    return Reflect.get(target, 'size', target);
   },
 };

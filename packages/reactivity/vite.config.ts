@@ -18,6 +18,7 @@ export default defineConfig({
     'import.meta.DEBUG': 'false',
     '"$PROXY"': '',
     '"$RAW"': '',
+    '"$SIZE"': '',
   },
   build: {
     target: 'esnext',

@@ -7,7 +7,7 @@ import { proxyMap } from './proxyMap';
 import { reactiveNodes } from './reactiveNodes';
 import { $PROXY, $RAW } from './symbols';
 
-export const reactive = <T extends object>(obj: T): T => {
+export const reactive = <T>(obj: T): T => {
   const rawObj = toRaw(obj);
   if (!isObject(rawObj)) return rawObj;
   if (proxyMap.has(rawObj)) return proxyMap.get(rawObj) as T;
@@ -64,11 +64,11 @@ const defaultTraps = {
 
     if (nodes.has(p)) {
       if (untrack(() => nodes.get(p)?.get()) === newValue) return true;
-      nodes.get(p)?.set(isObject(newValue) ? reactive(newValue) : newValue);
+      nodes.get(p)?.set(reactive(newValue));
     } else {
       const signal = wrap(Reflect.get(target, p));
       nodes.set(p, signal);
-      signal.set(isObject(newValue) ? reactive(newValue) : newValue);
+      signal.set(reactive(newValue));
     }
     return Reflect.set(target, p, newValue);
   },

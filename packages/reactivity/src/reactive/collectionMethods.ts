@@ -1,7 +1,7 @@
 import { Effect } from '../Effect';
 import { Signal, untrack } from '../Signal';
 import { nextTick } from '../nextTick';
-import { MapTypes, hasOwn, isObject } from '../utils';
+import { MapTypes, hasOwn } from '../utils';
 import { proxyMap } from './proxyMap';
 import { reactive, toRaw, wrap } from './reactive';
 import { reactiveNodes } from './reactiveNodes';
@@ -59,7 +59,7 @@ const collectionMethods: Partial<
     if (nodes.has(rawKey)) {
       const signal = nodes.get(rawKey)!;
       if (!untrack(() => Object.is(toRaw(signal.get()), rawValue)))
-        signal.set(isObject(rawValue) ? reactive(rawValue) : rawValue);
+        signal.set(reactive(rawValue));
     } else {
       const signal = wrap(rawValue);
       nodes.set(rawKey, signal);
@@ -115,12 +115,7 @@ const collectionMethods: Partial<
     if (!nodes) return target.forEach(cb, thisArg);
     this.size;
     return target.forEach((rawValue, rawKey) => {
-      cb.call(
-        thisArg,
-        this.get(rawKey),
-        isObject(rawKey) ? reactive(rawKey) : rawKey,
-        this,
-      );
+      cb.call(thisArg, this.get(rawKey), reactive(rawKey), this);
     });
   },
 };

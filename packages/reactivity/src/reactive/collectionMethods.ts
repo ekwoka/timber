@@ -51,21 +51,18 @@ const collectionMethods: Partial<
     const target = toRaw(this);
     const [rawKey, rawValue] = kv.map(toRaw);
     const nodes = reactiveNodes.get(target);
-    if (!nodes) {
-      target.set(rawKey as object, rawValue);
-      return this;
-    }
-    const sizeSignal = nodes.get($SIZE);
-    if (nodes.has(rawKey)) {
-      const signal = nodes.get(rawKey)!;
-      if (!untrack(() => Object.is(toRaw(signal.get()), rawValue)))
-        signal.set(reactive(rawValue));
-    } else {
-      const signal = wrap(rawValue);
-      nodes.set(rawKey, signal);
+    if (nodes) {
+      if (nodes.has(rawKey)) {
+        const signal = nodes.get(rawKey)!;
+        if (!untrack(() => Object.is(toRaw(signal.get()), rawValue)))
+          signal.set(reactive(rawValue));
+      } else {
+        const signal = wrap(rawValue);
+        nodes.set(rawKey, signal);
+      }
     }
     target.set(rawKey as object, rawValue);
-    if (sizeSignal) sizeSignal.set(Reflect.get(target, 'size', target));
+    nodes?.get($SIZE)?.set(Reflect.get(target, 'size', target));
     return this;
   },
   has(this: MapTypes, key: unknown) {

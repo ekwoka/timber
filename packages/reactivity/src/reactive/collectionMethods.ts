@@ -125,6 +125,27 @@ const collectionMethods: Partial<
     this.size;
     return iterateReactiveMap(target);
   },
+  keys(this: Map<unknown, unknown>) {
+    const target = toRaw(this);
+    const nodes = reactiveNodes.get(target);
+    if (!nodes) return target.keys();
+    this.size;
+    return iterateReactiveMap(target, IterKind.KEYS);
+  },
+  values(this: Map<unknown, unknown>) {
+    const target = toRaw(this);
+    const nodes = reactiveNodes.get(target);
+    if (!nodes) return target.values();
+    this.size;
+    return iterateReactiveMap(target, IterKind.VALUES);
+  },
+  entries(this: Map<unknown, unknown>) {
+    const target = toRaw(this);
+    const nodes = reactiveNodes.get(target);
+    if (!nodes) return target.entries();
+    this.size;
+    return iterateReactiveMap(target, IterKind.ENTRIES);
+  },
 };
 
 const enum IterKind {
@@ -407,6 +428,33 @@ if (import.meta.vitest) {
         map.set('foo', 42);
         map.set('bar', 69);
         const iterator = map[Symbol.iterator]();
+        expect(iterator.next()).toEqual({ value: ['foo', 42], done: false });
+        expect(iterator.next()).toEqual({ value: ['bar', 69], done: false });
+        expect(iterator.next()).toEqual({ value: undefined, done: true });
+      });
+      it('keys()', () => {
+        const map = reactive(new Map());
+        map.set('foo', 42);
+        map.set('bar', 69);
+        const iterator = map.keys();
+        expect(iterator.next()).toEqual({ value: 'foo', done: false });
+        expect(iterator.next()).toEqual({ value: 'bar', done: false });
+        expect(iterator.next()).toEqual({ value: undefined, done: true });
+      });
+      it('values()', () => {
+        const map = reactive(new Map());
+        map.set('foo', 42);
+        map.set('bar', 69);
+        const iterator = map.values();
+        expect(iterator.next()).toEqual({ value: 42, done: false });
+        expect(iterator.next()).toEqual({ value: 69, done: false });
+        expect(iterator.next()).toEqual({ value: undefined, done: true });
+      });
+      it('entries()', () => {
+        const map = reactive(new Map());
+        map.set('foo', 42);
+        map.set('bar', 69);
+        const iterator = map.entries();
         expect(iterator.next()).toEqual({ value: ['foo', 42], done: false });
         expect(iterator.next()).toEqual({ value: ['bar', 69], done: false });
         expect(iterator.next()).toEqual({ value: undefined, done: true });

@@ -114,8 +114,13 @@ const collectionMethods: Partial<
     const nodes = reactiveNodes.get(target);
     if (!nodes) return target.forEach(cb, thisArg);
     this.size;
-    return target.forEach((value, key) => {
-      cb.call(thisArg, wrap(value), wrap(key), target);
+    return target.forEach((rawValue, rawKey) => {
+      cb.call(
+        thisArg,
+        this.get(rawKey),
+        isObject(rawKey) ? reactive(rawKey) : rawKey,
+        this,
+      );
     });
   },
 };
@@ -299,7 +304,70 @@ if (import.meta.vitest) {
         let value = 0;
         map.forEach((v) => (value += v));
       });
-      it('');
+      it('reacts to added keys', async () => {
+        const map = reactive(new Map());
+        let value = 0;
+        map.set('foo', 42);
+        map.set('bar', 69);
+        new Effect(() => map.forEach((v) => (value += v)));
+        expect(value).toBe(111);
+        map.set('baz', 420);
+        value = 0;
+        await nextTick();
+        expect(value).toBe(531);
+      });
+      it('reacts to removed keys', async () => {
+        const map = reactive(new Map());
+        let value = 0;
+        map.set('foo', 42);
+        map.set('bar', 69);
+        map.set('baz', 420);
+        new Effect(() => map.forEach((v) => (value += v)));
+        expect(value).toBe(531);
+        map.delete('bar');
+        value = 0;
+        await nextTick();
+        expect(value).toBe(462);
+      });
+      it('reacts to cleared map', async () => {
+        const map = reactive(new Map());
+        let value = 0;
+        map.set('foo', 42);
+        map.set('bar', 69);
+        map.set('baz', 420);
+        new Effect(() => map.forEach((v) => (value += v)));
+        expect(value).toBe(531);
+        map.clear();
+        value = 0;
+        await nextTick();
+        expect(value).toBe(0);
+      });
+      it('reacts to changed values', async () => {
+        const map = reactive(new Map());
+        let value = 0;
+        map.set('foo', 42);
+        map.set('bar', 69);
+        map.set('baz', 420);
+        new Effect(() => map.forEach((v) => (value += v)));
+        expect(value).toBe(531);
+        map.set('bar', 11);
+        value = 0;
+        await nextTick();
+        expect(value).toBe(473);
+      });
+      it('reacts to nested value changes', async () => {
+        const map = reactive(new Map<string, { bar: number }>());
+        let value = 0;
+        map.set('foo', { bar: 42 });
+        map.set('baz', { bar: 69 });
+        map.set('qux', { bar: 420 });
+        new Effect(() => map.forEach((v) => (value += v.bar)));
+        expect(value).toBe(531);
+        map.get('foo')!.bar = 11;
+        value = 0;
+        await nextTick();
+        expect(value).toBe(500);
+      });
     });
   });
 }

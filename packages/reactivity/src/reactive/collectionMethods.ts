@@ -339,11 +339,11 @@ if (import.meta.vitest) {
         const fn = vi.fn(() => (size = map.size));
         new Effect(fn);
         expect(size).toBe(1);
-        expect(fn).toBeCalledTimes(1);
+        expect(fn).toHaveBeenCalledTimes(1);
         map.set('foo', 69);
         await nextTick();
         expect(size).toBe(1);
-        expect(fn).toBeCalledTimes(1);
+        expect(fn).toHaveBeenCalledTimes(1);
       });
     });
     describe('.forEach', () => {
@@ -464,33 +464,50 @@ if (import.meta.vitest) {
         map.set('foo', 42);
         map.set('bar', 69);
         map.set('baz', 420);
-        new Effect(() => {
+
+        const keyFn = vi.fn(() => {
           keys = [...map.keys()].toString();
         });
-        new Effect(() => {
+        new Effect(keyFn);
+
+        const valueFn = vi.fn(() => {
           values = [...map.values()].toString();
         });
-        new Effect(() => {
+        new Effect(valueFn);
+
+        const entryFn = vi.fn(() => {
           entries = [...map.entries()].map(([k, v]) => `${k}:${v}`).toString();
         });
+        new Effect(entryFn);
         expect(keys).toBe('foo,bar,baz');
         expect(values).toBe('42,69,420');
         expect(entries).toBe('foo:42,bar:69,baz:420');
+        [keyFn, valueFn, entryFn].forEach((fn) =>
+          expect(fn).toHaveBeenCalledTimes(1),
+        );
         map.set('qux', 111);
         await nextTick();
         expect(keys).toBe('foo,bar,baz,qux');
         expect(values).toBe('42,69,420,111');
         expect(entries).toBe('foo:42,bar:69,baz:420,qux:111');
+        [keyFn, valueFn, entryFn].forEach((fn) =>
+          expect(fn).toHaveBeenCalledTimes(2),
+        );
         map.delete('bar');
         await nextTick();
         expect(keys).toBe('foo,baz,qux');
         expect(values).toBe('42,420,111');
         expect(entries).toBe('foo:42,baz:420,qux:111');
+        [keyFn, valueFn, entryFn].forEach((fn) =>
+          expect(fn).toHaveBeenCalledTimes(3),
+        );
         map.set('foo', 69);
         await nextTick();
         expect(keys).toBe('foo,baz,qux');
         expect(values).toBe('69,420,111');
         expect(entries).toBe('foo:69,baz:420,qux:111');
+        expect(keyFn).toHaveBeenCalledTimes(3); // keys shouldn't react to value changes
+        [valueFn, entryFn].forEach((fn) => expect(fn).toHaveBeenCalledTimes(4));
       });
     });
   });

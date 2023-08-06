@@ -21,6 +21,7 @@ export class Signal<T = unknown> {
     return this.value;
   }
   set(value: T) {
+    if (Object.is(value, this.value)) return;
     this.value = value;
     this.dependents.forEach((effect) => effect.rerun());
   }

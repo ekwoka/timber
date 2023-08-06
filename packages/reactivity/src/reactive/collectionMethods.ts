@@ -81,9 +81,11 @@ const collectionMethods: Partial<
     if (nodes.has(rawKey)) {
       nodes.get(rawKey)?.set(undefined);
       nodes.delete(rawKey);
-      nodes.get($SIZE)?.set(Reflect.get(target, 'size', target));
     }
-    return target.delete(rawKey as object);
+    const deleteResult = target.delete(rawKey as object);
+    const innerSize = Reflect.get(target, 'size', target);
+    nodes.get($SIZE)?.set(innerSize);
+    return deleteResult;
   },
   clear(this: Map<unknown, unknown>) {
     const target = toRaw(this);
@@ -220,31 +222,74 @@ if (import.meta.vitest) {
       expect(map.has(key2)).toBe(true);
       expect(value).toBe(489);
     });
-    it('.size: can get the size', async () => {
-      const map = reactive(new Map());
-      const fn = vi.fn(() => (value = map.size));
-      let value: number = 42;
-      new Effect(fn);
-      expect(value).toBe(0);
-      expect(fn).toBeCalledTimes(1);
-      map.set('foo', 42);
-      await nextTick();
-      expect(value).toBe(1);
-      map.set('bar', 69);
-      await nextTick();
-      expect(map.size).toBe(2);
-      expect(value).toBe(2);
-      expect(fn).toBeCalledTimes(3);
-      map.set('foo', 69);
-      await nextTick();
-      expect(fn).toBeCalledTimes(4);
-      expect(value).toBe(2);
-      map.delete('foo');
-      await nextTick();
-      expect(value).toBe(1);
-      map.clear();
-      await nextTick();
-      expect(value).toBe(0);
+    describe('.size', () => {
+      it('can get the size', () => {
+        const map = reactive(new Map());
+        expect(map.size).toBe(0);
+        map.set('foo', 42);
+        expect(map.size).toBe(1);
+        map.set('bar', 69);
+        expect(map.size).toBe(2);
+      });
+      it('reacts to added keys', async () => {
+        const map = reactive(new Map());
+        let size = 0;
+        new Effect(() => (size = map.size));
+        expect(size).toBe(0);
+        map.set('foo', 42);
+        await nextTick();
+        expect(size).toBe(1);
+        map.set('bar', 69);
+        await nextTick();
+        expect(size).toBe(2);
+      });
+      it('reacts to deleted keys', async () => {
+        const map = reactive(new Map());
+        map.set('foo', 42);
+        map.set('bar', 69);
+        let size = 0;
+        new Effect(() => (size = map.size));
+        expect(size).toBe(2);
+        map.delete('foo');
+        await nextTick();
+        expect(size).toBe(1);
+        map.delete('bar');
+        await nextTick();
+        expect(size).toBe(0);
+      });
+      it('reacts to cleared map', async () => {
+        const map = reactive(new Map());
+        map.set('foo', 42);
+        map.set('bar', 69);
+        let size = 0;
+        new Effect(() => (size = map.size));
+        expect(size).toBe(2);
+        map.clear();
+        await nextTick();
+        expect(size).toBe(0);
+      });
+      it('does not trigger effect when set to old key', async () => {
+        const map = reactive(new Map());
+        let size = 0;
+        map.set('foo', 42);
+        const fn = vi.fn(() => (size = map.size));
+        new Effect(fn);
+        expect(size).toBe(1);
+        expect(fn).toBeCalledTimes(1);
+        map.set('foo', 69);
+        await nextTick();
+        expect(size).toBe(1);
+        expect(fn).toBeCalledTimes(1);
+      });
+    });
+    describe.skip('.forEach', () => {
+      it('iterates over all pairs', () => {
+        const map = reactive(new Map());
+        map.set('foo', 42);
+        map.set('bar', 69);
+        let value = 0;
+        map.forEach((v) => (value += v));
+      });
     });
   });
 }

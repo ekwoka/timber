@@ -122,29 +122,25 @@ const collectionMethods: Partial<
     const target = toRaw(this);
     const nodes = reactiveNodes.get(target);
     if (!nodes) return target[Symbol.iterator]();
-    this.size;
-    return iterateReactiveMap(target);
+    return iterateReactiveMap(this);
   },
   keys(this: Map<unknown, unknown>) {
     const target = toRaw(this);
     const nodes = reactiveNodes.get(target);
     if (!nodes) return target.keys();
-    this.size;
-    return iterateReactiveMap(target, IterKind.KEYS);
+    return iterateReactiveMap(this, IterKind.KEYS);
   },
   values(this: Map<unknown, unknown>) {
     const target = toRaw(this);
     const nodes = reactiveNodes.get(target);
     if (!nodes) return target.values();
-    this.size;
-    return iterateReactiveMap(target, IterKind.VALUES);
+    return iterateReactiveMap(this, IterKind.VALUES);
   },
   entries(this: Map<unknown, unknown>) {
     const target = toRaw(this);
     const nodes = reactiveNodes.get(target);
     if (!nodes) return target.entries();
-    this.size;
-    return iterateReactiveMap(target, IterKind.ENTRIES);
+    return iterateReactiveMap(this, IterKind.ENTRIES);
   },
 };
 
@@ -171,6 +167,7 @@ function* iterateReactiveMap<K, V>(
   mode: IterKind | undefined,
 ): IterableIterator<[K, V] | K | V> {
   const target = toRaw(map);
+  map.size;
   for (const [rawKey] of target.entries()) {
     if (mode === IterKind.KEYS) yield reactive(rawKey);
     else if (mode === IterKind.VALUES) yield map.get(rawKey)!;
@@ -458,6 +455,42 @@ if (import.meta.vitest) {
         expect(iterator.next()).toEqual({ value: ['foo', 42], done: false });
         expect(iterator.next()).toEqual({ value: ['bar', 69], done: false });
         expect(iterator.next()).toEqual({ value: undefined, done: true });
+      });
+      it('react to mutations', async () => {
+        const map = reactive(new Map());
+        let keys = '';
+        let values = '';
+        let entries = '';
+        map.set('foo', 42);
+        map.set('bar', 69);
+        map.set('baz', 420);
+        new Effect(() => {
+          keys = [...map.keys()].toString();
+        });
+        new Effect(() => {
+          values = [...map.values()].toString();
+        });
+        new Effect(() => {
+          entries = [...map.entries()].map(([k, v]) => `${k}:${v}`).toString();
+        });
+        expect(keys).toBe('foo,bar,baz');
+        expect(values).toBe('42,69,420');
+        expect(entries).toBe('foo:42,bar:69,baz:420');
+        map.set('qux', 111);
+        await nextTick();
+        expect(keys).toBe('foo,bar,baz,qux');
+        expect(values).toBe('42,69,420,111');
+        expect(entries).toBe('foo:42,bar:69,baz:420,qux:111');
+        map.delete('bar');
+        await nextTick();
+        expect(keys).toBe('foo,baz,qux');
+        expect(values).toBe('42,420,111');
+        expect(entries).toBe('foo:42,baz:420,qux:111');
+        map.set('foo', 69);
+        await nextTick();
+        expect(keys).toBe('foo,baz,qux');
+        expect(values).toBe('69,420,111');
+        expect(entries).toBe('foo:69,baz:420,qux:111');
       });
     });
   });

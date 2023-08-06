@@ -118,7 +118,44 @@ const collectionMethods: Partial<
       cb.call(thisArg, this.get(rawKey), reactive(rawKey), this);
     });
   },
+  [Symbol.iterator](this: Map<unknown, unknown>) {
+    const target = toRaw(this);
+    const nodes = reactiveNodes.get(target);
+    if (!nodes) return target[Symbol.iterator]();
+    this.size;
+    return iterateReactiveMap(target);
+  },
 };
+
+const enum IterKind {
+  KEYS = 1,
+  VALUES = 2,
+  ENTRIES = 4,
+}
+
+function iterateReactiveMap<K, V>(
+  map: Map<K, V>,
+  mode: IterKind.KEYS,
+): IterableIterator<K>;
+function iterateReactiveMap<K, V>(
+  map: Map<K, V>,
+  mode: IterKind.VALUES,
+): IterableIterator<V>;
+function iterateReactiveMap<K, V>(
+  map: Map<K, V>,
+  mode?: IterKind.ENTRIES,
+): IterableIterator<[K, V]>;
+function* iterateReactiveMap<K, V>(
+  map: Map<K, V>,
+  mode: IterKind | undefined,
+): IterableIterator<[K, V] | K | V> {
+  const target = toRaw(map);
+  for (const [rawKey] of target.entries()) {
+    if (mode === IterKind.KEYS) yield reactive(rawKey);
+    else if (mode === IterKind.VALUES) yield map.get(rawKey)!;
+    else yield [reactive(rawKey), map.get(rawKey)!];
+  }
+}
 
 if (import.meta.vitest) {
   describe('(Weak)Map', () => {
@@ -362,6 +399,17 @@ if (import.meta.vitest) {
         value = 0;
         await nextTick();
         expect(value).toBe(500);
+      });
+    });
+    describe('iterators', () => {
+      it('@@iterator', () => {
+        const map = reactive(new Map());
+        map.set('foo', 42);
+        map.set('bar', 69);
+        const iterator = map[Symbol.iterator]();
+        expect(iterator.next()).toEqual({ value: ['foo', 42], done: false });
+        expect(iterator.next()).toEqual({ value: ['bar', 69], done: false });
+        expect(iterator.next()).toEqual({ value: undefined, done: true });
       });
     });
   });

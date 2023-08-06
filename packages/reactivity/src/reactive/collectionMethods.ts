@@ -109,6 +109,15 @@ const collectionMethods: Partial<
     sizeSignal.set(innerSize);
     return sizeSignal.get();
   },
+  forEach(this: Map<unknown, unknown>, cb, thisArg) {
+    const target = toRaw(this);
+    const nodes = reactiveNodes.get(target);
+    if (!nodes) return target.forEach(cb, thisArg);
+    this.size;
+    return target.forEach((value, key) => {
+      cb.call(thisArg, wrap(value), wrap(key), target);
+    });
+  },
 };
 
 if (import.meta.vitest) {
@@ -282,7 +291,7 @@ if (import.meta.vitest) {
         expect(fn).toBeCalledTimes(1);
       });
     });
-    describe.skip('.forEach', () => {
+    describe('.forEach', () => {
       it('iterates over all pairs', () => {
         const map = reactive(new Map());
         map.set('foo', 42);
@@ -290,6 +299,7 @@ if (import.meta.vitest) {
         let value = 0;
         map.forEach((v) => (value += v));
       });
+      it('');
     });
   });
 }

@@ -29,7 +29,6 @@ export default defineConfig({
     include: ['./**/*{.spec,.test}.{ts,tsx}'],
     includeSource: ['./**/*.{ts,tsx}'],
     coverage: {
-      provider: 'c8',
       reporter: ['text-summary', 'text', 'html'],
     },
     reporters: ['dot'],

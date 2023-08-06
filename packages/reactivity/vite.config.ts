@@ -16,6 +16,9 @@ export default defineConfig({
   define: {
     'import.meta.vitest': 'undefined',
     'import.meta.DEBUG': 'false',
+    '"$PROXY"': '',
+    '"$RAW"': '',
+    '"$SIZE"': '',
   },
   build: {
     target: 'esnext',

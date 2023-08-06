@@ -10,34 +10,23 @@ export class Effect {
   dependencies: Set<Signal> = new Set();
   constructor(cb: () => void) {
     this.id = nextId++;
-    import.meta.DEBUG && console.log('creating effect:', this.id);
     this.operation = cb;
     this.run();
   }
   run() {
     effectStack.push(this);
-    import.meta.DEBUG && console.log('running effect:', this.id);
     this.operation();
     effectStack.pop();
   }
   register(signal: Signal) {
-    import.meta.DEBUG &&
-      console.log(
-        'registering signal:',
-        signal.id,
-        ', to this effect:',
-        this.id,
-      );
     this.dependencies.add(signal);
   }
   rerun() {
-    import.meta.DEBUG && console.log('triggering rerun on effect:', this.id);
     if (this === effectStack.at(-1)) return;
     this.release();
     addToEffectQueue(this);
   }
   release(cleanUp?: boolean) {
-    import.meta.DEBUG && console.log('releasing effect', this.id);
     this.dependencies.forEach((signal) => {
       signal.release(this);
       this.dependencies.delete(signal);

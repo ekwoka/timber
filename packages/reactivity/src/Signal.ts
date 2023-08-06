@@ -1,4 +1,5 @@
 import { Effect, effectStack } from './Effect';
+import { nextTick } from './nextTick';
 
 let nextId = 1;
 export class Signal<T = unknown> {
@@ -8,44 +9,23 @@ export class Signal<T = unknown> {
   dependents: Set<Effect> = new Set();
   constructor(value: T) {
     this.id = nextId++;
-    import.meta.DEBUG &&
-      console.log(
-        'creating Signal:',
-        typeof value === 'object' ? 'object' : value,
-        this.id,
-      );
     this.value = value;
   }
   get() {
-    import.meta.DEBUG &&
-      console.log(
-        'getting Signal:',
-        typeof this.value === 'object' ? 'object' : this.value,
-        this.id,
-      );
     if (dontTrack) return this.value;
     const activeEffect = effectStack.at(-1);
     if (activeEffect) {
-      import.meta.DEBUG &&
-        console.log(
-          'registering signal:',
-          this.id,
-          ', to effect:',
-          activeEffect.id,
-        );
       activeEffect.register(this);
       this.dependents.add(activeEffect);
     }
     return this.value;
   }
   set(value: T) {
-    import.meta.DEBUG && console.log('setting signal:', value, this.id);
+    if (Object.is(value, this.value)) return;
     this.value = value;
     this.dependents.forEach((effect) => effect.rerun());
   }
   release(effect: Effect) {
-    import.meta.DEBUG &&
-      console.log('releasing effect:', effect.id, ', from signal:', this.id);
     this.dependents.delete(effect);
   }
 }
@@ -65,6 +45,22 @@ if (import.meta.vitest) {
       expect(signal.get()).toBe(1);
       signal.set(42);
       expect(signal.get()).toBe(42);
+    });
+    it('can untrack inside an effect', async () => {
+      const first = new Signal(5);
+      const second = new Signal(10);
+      let value: number = 0;
+      new Effect(() => {
+        const initial = first.get();
+        untrack(() => (value = initial + second.get()));
+      });
+      expect(value).toBe(15);
+      first.set(42);
+      await nextTick();
+      expect(value).toBe(52);
+      second.set(100);
+      await nextTick();
+      expect(value).toBe(52);
     });
     it('knows it is a Signal', () =>
       expect(new Signal(1).toString()).toEqual('[object Signal]'));

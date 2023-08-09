@@ -19,6 +19,13 @@ export const makeMapReactive = <T extends MapTypes>(obj: T): T => {
   return wrapped as T;
 };
 
+export const makeSetReactive = <T extends Set<unknown>>(obj: T): T => {
+  reactiveNodes.set(obj, obj instanceof Set ? new Set() : new WeakSet());
+  const wrapped = new Proxy(obj, collectionTraps);
+  proxyMap.set(obj, wrapped);
+  return wrapped as T;
+};
+
 const collectionTraps: ProxyHandler<MapTypes> = {
   get(target, p, receiever) {
     if (p === $RAW) return target;
@@ -68,6 +75,7 @@ const collectionMethods: Partial<
   has(this: MapTypes, key: unknown) {
     const target = toRaw(this);
     const rawKey = toRaw(key);
+    this.get(rawKey as object);
     return target.has(rawKey as object);
   },
   delete(this: MapTypes, key: unknown) {
@@ -236,6 +244,21 @@ if (import.meta.vitest) {
       expect(map.has(key)).toBe(false);
       map.set(key, 42);
       expect(map.has(rawKey)).toBe(true);
+    });
+    it('.has: is reactive', async () => {
+      const map = reactive(new Map());
+      const key = { foo: 'bar' };
+      let has = false;
+      new Effect(() => {
+        has = map.has(key);
+      });
+      expect(has).toBe(false);
+      map.set(key, 42);
+      await nextTick();
+      expect(has).toBe(true);
+      map.delete(key);
+      await nextTick();
+      expect(has).toBe(false);
     });
     it('.delete: can delete a key', async () => {
       const map = reactive(new Map());

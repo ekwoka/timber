@@ -1,41 +1,16 @@
 import { Effect } from '../Effect';
 import { Signal, untrack } from '../Signal';
 import { nextTick } from '../nextTick';
-import { MapTypes, SetTypes, hasOwn, isMapType, isSetType } from '../utils';
+import { MapTypes, SetTypes, hasOwn, isMapType } from '../utils';
 import { proxyMap } from './proxyMap';
 import { reactive, toRaw, wrap } from './reactive';
 import { reactiveNodes } from './reactiveNodes';
-import { $PROXY, $RAW } from './symbols';
+import { $PROXY, $RAW, $SIZE } from './symbols';
 
-export const makeMapReactive = <T extends MapTypes>(obj: T): T => {
-  reactiveNodes.set(
-    obj,
-    obj instanceof Map
-      ? new Map()
-      : (new WeakMap() as Map<unknown, Signal<unknown>>),
-  );
-  const wrapped = new Proxy(obj, collectionTraps);
-  proxyMap.set(obj, wrapped);
-  return wrapped as T;
-};
-
-export const makeSetReactive = <T extends SetTypes>(obj: T): T => {
-  reactiveNodes.set(
-    obj,
-    obj instanceof Set
-      ? new Map()
-      : (new WeakMap() as Map<unknown, Signal<unknown>>),
-  );
-  const wrapped = new Proxy(obj, collectionTraps);
-  proxyMap.set(obj, wrapped);
-  return wrapped as T;
-};
-
-const collectionTraps: ProxyHandler<MapTypes | SetTypes> = {
+export const collectionTraps: ProxyHandler<MapTypes | SetTypes> = {
   get(target, p, receiever) {
     if (p === $RAW) return target;
     if (p === $PROXY) return proxyMap.get(target);
-    if (p === 'add') console.log('add', target instanceof Set);
     const methodHandlers = isMapType(target) ? mapMethods : setMethods;
     return Reflect.get(
       hasOwn(methodHandlers, p) && p in target ? methodHandlers : target,
@@ -45,27 +20,27 @@ const collectionTraps: ProxyHandler<MapTypes | SetTypes> = {
   },
 };
 
-const $SIZE = Symbol('$SIZE');
-
 function add(this: SetTypes, value: unknown) {
   const target = toRaw(this);
   const rawValue = toRaw(value);
-  const nodes = reactiveNodes.get(target);
-  if (nodes && !nodes.has(rawValue)) {
+  const nodes = reactiveNodes.get(target)!;
+
+  if (nodes.has(rawValue)) {
+    nodes.get(rawValue)!.set(reactive(rawValue));
+  } else {
     const signal = wrap(value);
     nodes.set(rawValue, signal);
   }
   target.add(value as object);
-  nodes?.get($SIZE)?.set(Reflect.get(target, 'size', target));
+  nodes.get($SIZE)?.set(Reflect.get(target, 'size', target));
   return this;
 }
 
 function get(this: MapTypes, key: unknown) {
   const target = toRaw(this);
   const rawKey = toRaw(key);
-  const nodes = reactiveNodes.get(target);
+  const nodes = reactiveNodes.get(target)!;
   const rawValue = target.get(rawKey as object);
-  if (!nodes) return rawValue;
   if (nodes.has(rawKey)) return nodes.get(rawKey)!.get();
   const signal = wrap(rawValue);
   nodes.set(rawKey, signal);
@@ -75,19 +50,17 @@ function get(this: MapTypes, key: unknown) {
 function set<T extends MapTypes>(this: T, ...kv: [unknown, unknown]) {
   const target = toRaw(this);
   const [rawKey, rawValue] = kv.map(toRaw);
-  const nodes = reactiveNodes.get(target);
-  if (nodes) {
-    if (nodes.has(rawKey)) {
-      const signal = nodes.get(rawKey)!;
-      if (!untrack(() => Object.is(toRaw(signal.get()), rawValue)))
-        signal.set(reactive(rawValue));
-    } else {
-      const signal = wrap(rawValue);
-      nodes.set(rawKey, signal);
-    }
+  const nodes = reactiveNodes.get(target)!;
+  if (nodes.has(rawKey)) {
+    const signal = nodes.get(rawKey)!;
+    if (!untrack(() => Object.is(toRaw(signal.get()), rawValue)))
+      signal.set(reactive(rawValue));
+  } else {
+    const signal = wrap(rawValue);
+    nodes.set(rawKey, signal);
   }
   target.set(rawKey as object, rawValue);
-  nodes?.get($SIZE)?.set(Reflect.get(target, 'size', target));
+  nodes.get($SIZE)?.set(Reflect.get(target, 'size', target));
   return this;
 }
 
@@ -101,8 +74,7 @@ function has(this: MapTypes, key: unknown) {
 function destroy(this: MapTypes, key: unknown) {
   const target = toRaw(this);
   const rawKey = toRaw(key);
-  const nodes = reactiveNodes.get(target);
-  if (!nodes) return target.delete(rawKey as object);
+  const nodes = reactiveNodes.get(target)!;
   if (nodes.has(rawKey)) {
     nodes.get(rawKey)?.set(undefined);
     nodes.delete(rawKey);
@@ -115,41 +87,43 @@ function destroy(this: MapTypes, key: unknown) {
 
 function clear(this: Map<unknown, unknown>) {
   const target = toRaw(this);
-  const nodes = reactiveNodes.get(target);
-  if (nodes) {
-    nodes.forEach((node) => node.set(undefined));
-    nodes.clear();
-  }
+  const nodes = reactiveNodes.get(target)!;
+  nodes.forEach((node) => node.set(undefined));
+  nodes.clear();
   return target.clear();
 }
 
-function size(this: MapTypes) {
+function size(this: MapTypes | SetTypes) {
   const target = toRaw(this);
-  const nodes = reactiveNodes.get(target);
+  const nodes = reactiveNodes.get(target)!;
   const innerSize = Reflect.get(target, 'size', target);
-  if (!nodes) return innerSize;
   if (!nodes.has($SIZE)) {
     const signal = new Signal(innerSize);
     nodes.set($SIZE, signal);
   }
-  const sizeSignal = nodes.get($SIZE)!;
+  const sizeSignal = nodes.get($SIZE)! as Signal<number>;
   sizeSignal.set(innerSize);
   return sizeSignal.get();
 }
 
-function forEach(
-  this: Map<unknown, unknown>,
-  cb: (v: unknown, k: unknown, map: Map<unknown, unknown>) => void,
-  thisArg: Map<unknown, unknown>,
+function forEach<T extends Map<unknown, unknown> | Set<unknown>>(
+  this: T,
+  cb: (v: unknown, k: unknown, map: T) => void,
+  thisArg: T,
 ) {
   const target = toRaw(this);
-  const nodes = reactiveNodes.get(target);
-  if (!nodes)
-    if (isSetType(target)) return target.forEach(cb, thisArg);
-    else return target.forEach(cb, thisArg);
   this.size;
-  return target.forEach((_rawValue, rawKey) => {
-    cb.call(thisArg, this.get(rawKey), reactive(rawKey), this);
+  if (isMapType(target))
+    return target.forEach((_rawValue, rawKey) => {
+      cb.call(
+        thisArg,
+        (this as Map<unknown, unknown>).get(rawKey),
+        reactive(rawKey),
+        this,
+      );
+    });
+  return target.forEach((rawValue) => {
+    cb.call(thisArg, reactive(rawValue), reactive(rawValue), this);
   });
 }
 
@@ -199,6 +173,17 @@ const mapMethods: Partial<MapTypes> = {
 
 const setMethods: Partial<SetTypes> = {
   add,
+  has,
+  delete: destroy,
+  clear,
+  get size() {
+    return size.call(this as Set<unknown>);
+  },
+  forEach,
+  [Symbol.iterator]: iterateMap,
+  keys: iterateMap,
+  values: iterateMap,
+  entries: iterateMap,
 };
 
 const enum IterKind {

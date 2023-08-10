@@ -19,6 +19,7 @@ export default defineConfig({
     '"$PROXY"': '',
     '"$RAW"': '',
     '"$SIZE"': '',
+    '"$EMPTY"': '',
   },
   build: {
     target: 'esnext',

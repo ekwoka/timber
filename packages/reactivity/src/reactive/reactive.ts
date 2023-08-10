@@ -1,8 +1,16 @@
 import { Effect } from '../Effect';
 import { Signal, untrack } from '../Signal';
 import { nextTick } from '../nextTick';
-import { isGetter, isMapType, isObject, isSetType, isSetter } from '../utils';
-import { makeMapReactive, makeSetReactive } from './collectionMethods';
+import {
+  MapTypes,
+  SetTypes,
+  isGetter,
+  isMapType,
+  isObject,
+  isSetType,
+  isSetter,
+} from '../utils';
+import { collectionTraps } from './collectionMethods';
 import { proxyMap } from './proxyMap';
 import { reactiveNodes } from './reactiveNodes';
 import { $PROXY, $RAW } from './symbols';
@@ -26,6 +34,30 @@ const makeDefaultReactive = <T extends object>(obj: T): T => {
   });
   proxyMap.set(obj, wrapped);
 
+  return wrapped as T;
+};
+
+export const makeMapReactive = <T extends MapTypes>(obj: T): T => {
+  reactiveNodes.set(
+    obj,
+    obj instanceof Map
+      ? new Map()
+      : (new WeakMap() as Map<unknown, Signal<unknown>>),
+  );
+  const wrapped = new Proxy(obj, collectionTraps);
+  proxyMap.set(obj, wrapped);
+  return wrapped as T;
+};
+
+export const makeSetReactive = <T extends SetTypes>(obj: T): T => {
+  reactiveNodes.set(
+    obj,
+    obj instanceof Set
+      ? new Map()
+      : (new WeakMap() as Map<unknown, Signal<unknown>>),
+  );
+  const wrapped = new Proxy(obj, collectionTraps);
+  proxyMap.set(obj, wrapped);
   return wrapped as T;
 };
 

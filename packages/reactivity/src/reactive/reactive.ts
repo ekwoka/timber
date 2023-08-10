@@ -1,8 +1,8 @@
 import { Effect } from '../Effect';
 import { Signal, untrack } from '../Signal';
 import { nextTick } from '../nextTick';
-import { isGetter, isMapType, isObject, isSetter } from '../utils';
-import { makeMapReactive } from './collectionMethods';
+import { isGetter, isMapType, isObject, isSetType, isSetter } from '../utils';
+import { makeMapReactive, makeSetReactive } from './collectionMethods';
 import { proxyMap } from './proxyMap';
 import { reactiveNodes } from './reactiveNodes';
 import { $PROXY, $RAW } from './symbols';
@@ -12,6 +12,7 @@ export const reactive = <T>(obj: T): T => {
   if (!isObject(rawObj)) return rawObj;
   if (proxyMap.has(rawObj)) return proxyMap.get(rawObj) as T;
   if (isMapType(rawObj)) return makeMapReactive(rawObj);
+  if (isSetType(rawObj)) return makeSetReactive(rawObj);
   return makeDefaultReactive(rawObj);
 };
 

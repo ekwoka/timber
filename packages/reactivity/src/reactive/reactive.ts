@@ -114,7 +114,7 @@ export const wrap = <T>(item: T): Signal<T> => {
 };
 
 export const toRaw = <T>(obj: T): T =>
-  isObject(obj) ? Reflect.get(obj, $RAW) ?? obj : obj;
+  isObject(obj) ? (Reflect.get(obj, $RAW) as T) ?? obj : obj;
 
 if (import.meta.vitest) {
   describe('reactive', () => {

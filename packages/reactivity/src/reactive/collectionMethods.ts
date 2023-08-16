@@ -1,7 +1,7 @@
 import { Effect } from '../Effect';
 import { Signal, untrack } from '../Signal';
 import { nextTick } from '../nextTick';
-import { MapTypes, SetTypes, hasOwn, isMapType } from '../utils';
+import { MapTypes, SetTypes, hasOwn, isMapType, isObject } from '../utils';
 import { proxyMap } from './proxyMap';
 import { reactive, toRaw, wrap } from './reactive';
 import { reactiveNodes } from './reactiveNodes';
@@ -24,7 +24,6 @@ function add(this: SetTypes, value: unknown) {
   const target = toRaw(this);
   const rawValue = toRaw(value);
   const nodes = reactiveNodes.get(target)!;
-
   if (nodes.has(rawValue)) {
     nodes.get(rawValue)!.set(reactive(rawValue));
   } else {
@@ -64,11 +63,20 @@ function set<T extends MapTypes>(this: T, ...kv: [unknown, unknown]) {
   return this;
 }
 
-function has(this: MapTypes, key: unknown) {
+function has(this: MapTypes, key: object) {
   const target = toRaw(this);
   const rawKey = toRaw(key);
   this.get(rawKey as object);
   return target.has(rawKey as object);
+}
+
+function setHas(this: SetTypes, value: object) {
+  const target = toRaw(this);
+  const rawValue = toRaw(value);
+  const nodes = reactiveNodes.get(target)!;
+  if (!nodes.has(rawValue)) nodes.set(rawValue, wrap(undefined));
+  nodes.get(rawValue)?.get();
+  return target.has(rawValue);
 }
 
 function destroy(this: MapTypes, key: unknown) {
@@ -127,32 +135,38 @@ function forEach<T extends Map<unknown, unknown> | Set<unknown>>(
   });
 }
 
-function iterateMap(this: Map<unknown, unknown>) {
+function iterateMap(this: Map<unknown, unknown> | Set<unknown>) {
   const target = toRaw(this);
   const nodes = reactiveNodes.get(target);
   if (!nodes) return target[Symbol.iterator]();
-  return iterateReactiveMap(this);
+  return isMapType(this) ? iterateReactiveMap(this) : iterateReactiveSet(this);
 }
 
-function keys(this: Map<unknown, unknown>) {
+function keys(this: Map<unknown, unknown> | Set<unknown>) {
   const target = toRaw(this);
   const nodes = reactiveNodes.get(target);
   if (!nodes) return target.keys();
-  return iterateReactiveMap(this, IterKind.KEYS);
+  return isMapType(this)
+    ? iterateReactiveMap(this, IterKind.KEYS)
+    : iterateReactiveSet(this, IterKind.KEYS);
 }
 
-function values(this: Map<unknown, unknown>) {
+function values(this: Map<unknown, unknown> | Set<unknown>) {
   const target = toRaw(this);
   const nodes = reactiveNodes.get(target);
   if (!nodes) return target.values();
-  return iterateReactiveMap(this, IterKind.VALUES);
+  return isMapType(this)
+    ? iterateReactiveMap(this, IterKind.VALUES)
+    : iterateReactiveSet(this, IterKind.VALUES);
 }
 
-function entries(this: Map<unknown, unknown>) {
+function entries(this: Map<unknown, unknown> | Set<unknown>) {
   const target = toRaw(this);
   const nodes = reactiveNodes.get(target);
   if (!nodes) return target.entries();
-  return iterateReactiveMap(this, IterKind.ENTRIES);
+  return isMapType(this)
+    ? iterateReactiveMap(this, IterKind.ENTRIES)
+    : iterateReactiveSet(this, IterKind.ENTRIES);
 }
 
 const mapMethods: Partial<MapTypes> = {
@@ -165,7 +179,7 @@ const mapMethods: Partial<MapTypes> = {
     return size.call(this as Map<unknown, unknown>);
   },
   forEach,
-  [Symbol.iterator]: iterateMap,
+  [Symbol.iterator]: iterateMap as () => IterableIterator<[unknown, unknown]>,
   keys,
   values,
   entries,
@@ -173,7 +187,7 @@ const mapMethods: Partial<MapTypes> = {
 
 const setMethods: Partial<SetTypes> = {
   add,
-  has,
+  has: setHas,
   delete: destroy,
   clear,
   get size() {
@@ -181,9 +195,9 @@ const setMethods: Partial<SetTypes> = {
   },
   forEach,
   [Symbol.iterator]: iterateMap,
-  keys: iterateMap,
-  values: iterateMap,
-  entries: iterateMap,
+  keys,
+  values,
+  entries,
 };
 
 const enum IterKind {
@@ -214,6 +228,32 @@ function* iterateReactiveMap<K, V>(
     if (mode === IterKind.KEYS) yield reactive(rawKey);
     else if (mode === IterKind.VALUES) yield map.get(rawKey)!;
     else yield [reactive(rawKey), map.get(rawKey)!];
+  }
+}
+function iterateReactiveSet<K>(
+  set: Set<K>,
+  mode: IterKind.KEYS,
+): IterableIterator<K>;
+function iterateReactiveSet<K>(
+  set: Set<K>,
+  mode: IterKind.VALUES,
+): IterableIterator<V>;
+function iterateReactiveSet<K>(
+  set: Set<K>,
+  mode?: IterKind.ENTRIES,
+): IterableIterator<[K, K]>;
+function* iterateReactiveSet<K>(
+  set: Set<K>,
+  mode: IterKind | undefined,
+): IterableIterator<[K, K] | K> {
+  const target = toRaw(set);
+  set.size;
+  for (const [rawKey] of target.entries()) {
+    const nodes = reactiveNodes.get(target);
+    const reactiveKey =
+      nodes?.get(rawKey)?.get() ?? isObject(rawKey) ? reactive(rawKey) : rawKey;
+    if (!mode || mode === IterKind.ENTRIES) yield [reactiveKey, reactiveKey];
+    else yield reactiveKey;
   }
 }
 
@@ -573,7 +613,7 @@ if (import.meta.vitest) {
       const set = reactive(new Set());
       set.add(42);
       set.add(69);
-      /* expect(set.has(42)).toBe(true);
+      expect(set.has(42)).toBe(true);
       expect(set.has(69)).toBe(true);
       expect(set.has(420)).toBe(false);
       expect(set.size).toBe(2);
@@ -583,7 +623,33 @@ if (import.meta.vitest) {
       expect(set.size).toBe(1);
       set.clear();
       expect(set.has(69)).toBe(false);
-      expect(set.size).toBe(0); */
+      expect(set.size).toBe(0);
+    });
+    it('can react to mutations', async () => {
+      const set = reactive(new Set<number>());
+      let value = 0;
+      let keys = 0;
+      set.add(1);
+      set.add(2);
+      new Effect(() => set.forEach((val) => (value += val)));
+      new Effect(() => (keys = [...set.keys()].reduce((a, b) => a + b, 0)));
+      expect(value).toBe(0b11);
+      expect(keys).toBe(0b11);
+      set.add(4);
+      value = 0;
+      await nextTick();
+      expect(value).toBe(0b111);
+      expect(keys).toBe(0b111);
+      set.delete(2);
+      value = 0;
+      await nextTick();
+      expect(value).toBe(0b101);
+      expect(keys).toBe(0b101);
+      set.clear();
+      value = 0;
+      await nextTick();
+      expect(value).toBe(0);
+      expect(keys).toBe(0);
     });
   });
 }

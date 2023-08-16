@@ -1,144 +1,203 @@
 import { Effect } from '../Effect';
 import { Signal, untrack } from '../Signal';
 import { nextTick } from '../nextTick';
-import { MapTypes, hasOwn } from '../utils';
+import { MapTypes, SetTypes, hasOwn, isMapType, isObject } from '../utils';
 import { proxyMap } from './proxyMap';
 import { reactive, toRaw, wrap } from './reactive';
 import { reactiveNodes } from './reactiveNodes';
-import { $PROXY, $RAW } from './symbols';
+import { $PROXY, $RAW, $SIZE } from './symbols';
 
-export const makeMapReactive = <T extends MapTypes>(obj: T): T => {
-  reactiveNodes.set(
-    obj,
-    obj instanceof Map
-      ? new Map()
-      : (new WeakMap() as Map<unknown, Signal<unknown>>),
-  );
-  const wrapped = new Proxy(obj, collectionTraps);
-  proxyMap.set(obj, wrapped);
-  return wrapped as T;
-};
-
-const collectionTraps: ProxyHandler<MapTypes> = {
+export const collectionTraps: ProxyHandler<MapTypes | SetTypes> = {
   get(target, p, receiever) {
     if (p === $RAW) return target;
     if (p === $PROXY) return proxyMap.get(target);
+    const methodHandlers = isMapType(target) ? mapMethods : setMethods;
     return Reflect.get(
-      hasOwn(collectionMethods, p) && p in target ? collectionMethods : target,
+      hasOwn(methodHandlers, p) && p in target ? methodHandlers : target,
       p,
       receiever,
     );
   },
 };
 
-const $SIZE = Symbol('$SIZE');
+function add(this: SetTypes, value: unknown) {
+  const target = toRaw(this);
+  const rawValue = toRaw(value);
+  const nodes = reactiveNodes.get(target)!;
+  if (nodes.has(rawValue)) {
+    nodes.get(rawValue)!.set(reactive(rawValue));
+  } else {
+    const signal = wrap(value);
+    nodes.set(rawValue, signal);
+  }
+  target.add(value as object);
+  nodes.get($SIZE)?.set(Reflect.get(target, 'size', target));
+  return this;
+}
 
-const collectionMethods: Partial<
-  Map<unknown, unknown> & WeakMap<object, unknown>
-> = {
-  get(this: MapTypes, key: unknown) {
-    const target = toRaw(this);
-    const rawKey = toRaw(key);
-    const nodes = reactiveNodes.get(target);
-    const rawValue = target.get(rawKey as object);
-    if (!nodes) return rawValue;
-    if (nodes.has(rawKey)) return nodes.get(rawKey)!.get();
+function get(this: MapTypes, key: unknown) {
+  const target = toRaw(this);
+  const rawKey = toRaw(key);
+  const nodes = reactiveNodes.get(target)!;
+  const rawValue = target.get(rawKey as object);
+  if (nodes.has(rawKey)) return nodes.get(rawKey)!.get();
+  const signal = wrap(rawValue);
+  nodes.set(rawKey, signal);
+  return signal.get();
+}
+
+function set<T extends MapTypes>(this: T, ...kv: [unknown, unknown]) {
+  const target = toRaw(this);
+  const [rawKey, rawValue] = kv.map(toRaw);
+  const nodes = reactiveNodes.get(target)!;
+  if (nodes.has(rawKey)) {
+    const signal = nodes.get(rawKey)!;
+    if (!untrack(() => Object.is(toRaw(signal.get()), rawValue)))
+      signal.set(reactive(rawValue));
+  } else {
     const signal = wrap(rawValue);
     nodes.set(rawKey, signal);
-    return signal.get();
-  },
-  set<T extends MapTypes>(this: T, ...kv: [unknown, unknown]) {
-    const target = toRaw(this);
-    const [rawKey, rawValue] = kv.map(toRaw);
-    const nodes = reactiveNodes.get(target);
-    if (nodes) {
-      if (nodes.has(rawKey)) {
-        const signal = nodes.get(rawKey)!;
-        if (!untrack(() => Object.is(toRaw(signal.get()), rawValue)))
-          signal.set(reactive(rawValue));
-      } else {
-        const signal = wrap(rawValue);
-        nodes.set(rawKey, signal);
-      }
-    }
-    target.set(rawKey as object, rawValue);
-    nodes?.get($SIZE)?.set(Reflect.get(target, 'size', target));
-    return this;
-  },
-  has(this: MapTypes, key: unknown) {
-    const target = toRaw(this);
-    const rawKey = toRaw(key);
-    return target.has(rawKey as object);
-  },
-  delete(this: MapTypes, key: unknown) {
-    const target = toRaw(this);
-    const rawKey = toRaw(key);
-    const nodes = reactiveNodes.get(target);
-    if (!nodes) return target.delete(rawKey as object);
-    if (nodes.has(rawKey)) {
-      nodes.get(rawKey)?.set(undefined);
-      nodes.delete(rawKey);
-    }
-    const deleteResult = target.delete(rawKey as object);
-    const innerSize = Reflect.get(target, 'size', target);
-    nodes.get($SIZE)?.set(innerSize);
-    return deleteResult;
-  },
-  clear(this: Map<unknown, unknown>) {
-    const target = toRaw(this);
-    const nodes = reactiveNodes.get(target);
-    if (nodes) {
-      nodes.forEach((node) => node.set(undefined));
-      nodes.clear();
-    }
-    return target.clear();
-  },
-  get size() {
-    const target = toRaw(this);
-    const nodes = reactiveNodes.get(target);
-    const innerSize = Reflect.get(target, 'size', target);
-    if (!nodes) return innerSize;
-    if (!nodes.has($SIZE)) {
-      const signal = new Signal(innerSize);
-      nodes.set($SIZE, signal);
-    }
-    const sizeSignal = nodes.get($SIZE)!;
-    sizeSignal.set(innerSize);
-    return sizeSignal.get();
-  },
-  forEach(this: Map<unknown, unknown>, cb, thisArg) {
-    const target = toRaw(this);
-    const nodes = reactiveNodes.get(target);
-    if (!nodes) return target.forEach(cb, thisArg);
-    this.size;
-    return target.forEach((rawValue, rawKey) => {
-      cb.call(thisArg, this.get(rawKey), reactive(rawKey), this);
+  }
+  target.set(rawKey as object, rawValue);
+  nodes.get($SIZE)?.set(Reflect.get(target, 'size', target));
+  return this;
+}
+
+function has(this: MapTypes, key: object) {
+  const target = toRaw(this);
+  const rawKey = toRaw(key);
+  this.get(rawKey as object);
+  return target.has(rawKey as object);
+}
+
+function setHas(this: SetTypes, value: object) {
+  const target = toRaw(this);
+  const rawValue = toRaw(value);
+  const nodes = reactiveNodes.get(target)!;
+  if (!nodes.has(rawValue)) nodes.set(rawValue, wrap(undefined));
+  nodes.get(rawValue)?.get();
+  return target.has(rawValue);
+}
+
+function destroy(this: MapTypes, key: unknown) {
+  const target = toRaw(this);
+  const rawKey = toRaw(key);
+  const nodes = reactiveNodes.get(target)!;
+  if (nodes.has(rawKey)) {
+    nodes.get(rawKey)?.set(undefined);
+    nodes.delete(rawKey);
+  }
+  const deleteResult = target.delete(rawKey as object);
+  const innerSize = Reflect.get(target, 'size', target);
+  nodes.get($SIZE)?.set(innerSize);
+  return deleteResult;
+}
+
+function clear(this: Map<unknown, unknown>) {
+  const target = toRaw(this);
+  const nodes = reactiveNodes.get(target)!;
+  nodes.forEach((node) => node.set(undefined));
+  nodes.clear();
+  return target.clear();
+}
+
+function size(this: MapTypes | SetTypes) {
+  const target = toRaw(this);
+  const nodes = reactiveNodes.get(target)!;
+  const innerSize = Reflect.get(target, 'size', target);
+  if (!nodes.has($SIZE)) {
+    const signal = new Signal(innerSize);
+    nodes.set($SIZE, signal);
+  }
+  const sizeSignal = nodes.get($SIZE)! as Signal<number>;
+  sizeSignal.set(innerSize);
+  return sizeSignal.get();
+}
+
+function forEach<T extends Map<unknown, unknown> | Set<unknown>>(
+  this: T,
+  cb: (v: unknown, k: unknown, map: T) => void,
+  thisArg: T,
+) {
+  const target = toRaw(this);
+  this.size;
+  if (isMapType(target))
+    return target.forEach((_rawValue, rawKey) => {
+      cb.call(
+        thisArg,
+        (this as Map<unknown, unknown>).get(rawKey),
+        reactive(rawKey),
+        this,
+      );
     });
+  return target.forEach((rawValue) => {
+    cb.call(thisArg, reactive(rawValue), reactive(rawValue), this);
+  });
+}
+
+function iterateMap(this: Map<unknown, unknown> | Set<unknown>) {
+  const target = toRaw(this);
+  const nodes = reactiveNodes.get(target);
+  if (!nodes) return target[Symbol.iterator]();
+  return isMapType(this) ? iterateReactiveMap(this) : iterateReactiveSet(this);
+}
+
+function keys(this: Map<unknown, unknown> | Set<unknown>) {
+  const target = toRaw(this);
+  const nodes = reactiveNodes.get(target);
+  if (!nodes) return target.keys();
+  return isMapType(this)
+    ? iterateReactiveMap(this, IterKind.KEYS)
+    : iterateReactiveSet(this, IterKind.KEYS);
+}
+
+function values(this: Map<unknown, unknown> | Set<unknown>) {
+  const target = toRaw(this);
+  const nodes = reactiveNodes.get(target);
+  if (!nodes) return target.values();
+  return isMapType(this)
+    ? iterateReactiveMap(this, IterKind.VALUES)
+    : iterateReactiveSet(this, IterKind.VALUES);
+}
+
+function entries(this: Map<unknown, unknown> | Set<unknown>) {
+  const target = toRaw(this);
+  const nodes = reactiveNodes.get(target);
+  if (!nodes) return target.entries();
+  return isMapType(this)
+    ? iterateReactiveMap(this, IterKind.ENTRIES)
+    : iterateReactiveSet(this, IterKind.ENTRIES);
+}
+
+const mapMethods: Partial<MapTypes> = {
+  get,
+  set,
+  has,
+  delete: destroy,
+  clear,
+  get size() {
+    return size.call(this as Map<unknown, unknown>);
   },
-  [Symbol.iterator](this: Map<unknown, unknown>) {
-    const target = toRaw(this);
-    const nodes = reactiveNodes.get(target);
-    if (!nodes) return target[Symbol.iterator]();
-    return iterateReactiveMap(this);
+  forEach,
+  [Symbol.iterator]: iterateMap as () => IterableIterator<[unknown, unknown]>,
+  keys,
+  values,
+  entries,
+};
+
+const setMethods: Partial<SetTypes> = {
+  add,
+  has: setHas,
+  delete: destroy,
+  clear,
+  get size() {
+    return size.call(this as Set<unknown>);
   },
-  keys(this: Map<unknown, unknown>) {
-    const target = toRaw(this);
-    const nodes = reactiveNodes.get(target);
-    if (!nodes) return target.keys();
-    return iterateReactiveMap(this, IterKind.KEYS);
-  },
-  values(this: Map<unknown, unknown>) {
-    const target = toRaw(this);
-    const nodes = reactiveNodes.get(target);
-    if (!nodes) return target.values();
-    return iterateReactiveMap(this, IterKind.VALUES);
-  },
-  entries(this: Map<unknown, unknown>) {
-    const target = toRaw(this);
-    const nodes = reactiveNodes.get(target);
-    if (!nodes) return target.entries();
-    return iterateReactiveMap(this, IterKind.ENTRIES);
-  },
+  forEach,
+  [Symbol.iterator]: iterateMap,
+  keys,
+  values,
+  entries,
 };
 
 const enum IterKind {
@@ -169,6 +228,32 @@ function* iterateReactiveMap<K, V>(
     if (mode === IterKind.KEYS) yield reactive(rawKey);
     else if (mode === IterKind.VALUES) yield map.get(rawKey)!;
     else yield [reactive(rawKey), map.get(rawKey)!];
+  }
+}
+function iterateReactiveSet<K>(
+  set: Set<K>,
+  mode: IterKind.KEYS,
+): IterableIterator<K>;
+function iterateReactiveSet<K>(
+  set: Set<K>,
+  mode: IterKind.VALUES,
+): IterableIterator<V>;
+function iterateReactiveSet<K>(
+  set: Set<K>,
+  mode?: IterKind.ENTRIES,
+): IterableIterator<[K, K]>;
+function* iterateReactiveSet<K>(
+  set: Set<K>,
+  mode: IterKind | undefined,
+): IterableIterator<[K, K] | K> {
+  const target = toRaw(set);
+  set.size;
+  for (const [rawKey] of target.entries()) {
+    const nodes = reactiveNodes.get(target);
+    const reactiveKey =
+      nodes?.get(rawKey)?.get() ?? isObject(rawKey) ? reactive(rawKey) : rawKey;
+    if (!mode || mode === IterKind.ENTRIES) yield [reactiveKey, reactiveKey];
+    else yield reactiveKey;
   }
 }
 
@@ -236,6 +321,21 @@ if (import.meta.vitest) {
       expect(map.has(key)).toBe(false);
       map.set(key, 42);
       expect(map.has(rawKey)).toBe(true);
+    });
+    it('.has: is reactive', async () => {
+      const map = reactive(new Map());
+      const key = { foo: 'bar' };
+      let has = false;
+      new Effect(() => {
+        has = map.has(key);
+      });
+      expect(has).toBe(false);
+      map.set(key, 42);
+      await nextTick();
+      expect(has).toBe(true);
+      map.delete(key);
+      await nextTick();
+      expect(has).toBe(false);
     });
     it('.delete: can delete a key', async () => {
       const map = reactive(new Map());
@@ -506,6 +606,50 @@ if (import.meta.vitest) {
         expect(keyFn).toHaveBeenCalledTimes(3); // keys shouldn't react to value changes
         [valueFn, entryFn].forEach((fn) => expect(fn).toHaveBeenCalledTimes(4));
       });
+    });
+  });
+  describe('(Weak)Set', () => {
+    it('can handle Set', () => {
+      const set = reactive(new Set());
+      set.add(42);
+      set.add(69);
+      expect(set.has(42)).toBe(true);
+      expect(set.has(69)).toBe(true);
+      expect(set.has(420)).toBe(false);
+      expect(set.size).toBe(2);
+      set.delete(42);
+      expect(set.has(42)).toBe(false);
+      expect(set.has(69)).toBe(true);
+      expect(set.size).toBe(1);
+      set.clear();
+      expect(set.has(69)).toBe(false);
+      expect(set.size).toBe(0);
+    });
+    it('can react to mutations', async () => {
+      const set = reactive(new Set<number>());
+      let value = 0;
+      let keys = 0;
+      set.add(1);
+      set.add(2);
+      new Effect(() => set.forEach((val) => (value += val)));
+      new Effect(() => (keys = [...set.keys()].reduce((a, b) => a + b, 0)));
+      expect(value).toBe(0b11);
+      expect(keys).toBe(0b11);
+      set.add(4);
+      value = 0;
+      await nextTick();
+      expect(value).toBe(0b111);
+      expect(keys).toBe(0b111);
+      set.delete(2);
+      value = 0;
+      await nextTick();
+      expect(value).toBe(0b101);
+      expect(keys).toBe(0b101);
+      set.clear();
+      value = 0;
+      await nextTick();
+      expect(value).toBe(0);
+      expect(keys).toBe(0);
     });
   });
 }

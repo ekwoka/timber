@@ -1,8 +1,6 @@
 export { hasOwn } from './hasOwn';
 export { isGetter } from './isGetter';
-export { isMapType } from './isMapType';
 export { isObject } from './isObject';
+export { isWeakType, isSetType, isMapType } from './isOfClass';
 export { isSetter } from './isSetter';
-export { isSetType } from './isSetType';
-export type { MapTypes } from './isMapType';
-export type { SetTypes } from './isSetType';
+export type { WeakTypes, SetTypes, MapTypes } from './isOfClass';

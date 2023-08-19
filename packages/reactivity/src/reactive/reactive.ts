@@ -1,14 +1,13 @@
 import { Effect } from '../Effect';
-import { Signal, untrack } from '../Signal';
+import { Signal } from '../Signal';
 import { nextTick } from '../nextTick';
 import {
-  MapTypes,
-  SetTypes,
   isGetter,
   isMapType,
   isObject,
   isSetType,
   isSetter,
+  isWeakType,
 } from '../utils';
 import { collectionTraps } from './collectionMethods';
 import { proxyMap } from './proxyMap';
@@ -19,44 +18,23 @@ export const reactive = <T>(obj: T): T => {
   const rawObj = toRaw(obj);
   if (!isObject(rawObj)) return rawObj;
   if (proxyMap.has(rawObj)) return proxyMap.get(rawObj) as T;
-  if (isMapType(rawObj)) return makeMapReactive(rawObj);
-  if (isSetType(rawObj)) return makeSetReactive(rawObj);
-  return makeDefaultReactive(rawObj);
-};
-
-const makeDefaultReactive = <T extends object>(obj: T): T => {
-  reactiveNodes.set(obj, new Map<string | symbol, Signal<unknown>>());
-  const wrapped = new Proxy(obj, defaultTraps);
-  Object.defineProperty(obj, $PROXY, {
-    enumerable: false,
-    configurable: false,
-    value: wrapped,
-  });
-  proxyMap.set(obj, wrapped);
-
-  return wrapped as T;
-};
-
-export const makeMapReactive = <T extends MapTypes>(obj: T): T => {
   reactiveNodes.set(
-    obj,
-    obj instanceof Map
-      ? new Map()
-      : (new WeakMap() as Map<unknown, Signal<unknown>>),
+    rawObj,
+    isWeakType(rawObj)
+      ? (new WeakMap() as Map<unknown, Signal<unknown>>)
+      : new Map(),
   );
-  const wrapped = new Proxy(obj, collectionTraps);
-  proxyMap.set(obj, wrapped);
-  return wrapped as T;
+  return makeReactive(
+    rawObj,
+    isMapType(rawObj) || isSetType(rawObj) ? collectionTraps : defaultTraps,
+  );
 };
 
-export const makeSetReactive = <T extends SetTypes>(obj: T): T => {
-  reactiveNodes.set(
-    obj,
-    obj instanceof Set
-      ? new Map()
-      : (new WeakMap() as Map<unknown, Signal<unknown>>),
-  );
-  const wrapped = new Proxy(obj, collectionTraps);
+const makeReactive = <T extends object>(
+  obj: T,
+  handlers: ProxyHandler<object>,
+): T => {
+  const wrapped = new Proxy(obj, handlers);
   proxyMap.set(obj, wrapped);
   return wrapped as T;
 };
@@ -65,7 +43,7 @@ const defaultTraps = {
   has<T extends object>(target: T, p: string | symbol) {
     if (p === $RAW) return true;
     if (p === $PROXY) return true;
-    return Reflect.has(target, p);
+    return p in target;
   },
   get<T extends object>(target: T, p: string | symbol, reciever: T) {
     if (p === $RAW) return target;
@@ -96,10 +74,10 @@ const defaultTraps = {
     if (isSetter(target, p)) return Reflect.set(target, p, newValue, reciever);
 
     if (nodes.has(p)) {
-      if (untrack(() => nodes.get(p)?.get()) === newValue) return true;
+      if (nodes.get(p)?.peek() === newValue) return true;
       nodes.get(p)?.set(reactive(newValue));
     } else {
-      const signal = wrap(Reflect.get(target, p));
+      const signal = wrap(Reflect.get(target, p) as unknown);
       nodes.set(p, signal);
       signal.set(reactive(newValue));
     }
@@ -130,16 +108,6 @@ if (import.meta.vitest) {
       expect(value).toBe(0b11);
       await nextTick();
       expect(value).toBe(0b110);
-    });
-    it('allows accessing the $PROXY on the passed in object', () => {
-      const obj = { value: 42 };
-      const proxy = reactive(obj);
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      expect(obj[$PROXY]).toBe(proxy);
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      expect(proxy[$PROXY]).toBe(proxy);
     });
     it('allows accessing the raw object from the $RAW property', () => {
       const obj = { value: 42 };

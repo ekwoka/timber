@@ -1,11 +1,11 @@
 import { Effect } from '../Effect';
-import { Signal, untrack } from '../Signal';
+import { Signal } from '../Signal';
 import { nextTick } from '../nextTick';
 import { MapTypes, SetTypes, hasOwn, isMapType, isObject } from '../utils';
 import { proxyMap } from './proxyMap';
 import { reactive, toRaw, wrap } from './reactive';
 import { reactiveNodes } from './reactiveNodes';
-import { $PROXY, $RAW, $SIZE } from './symbols';
+import { $EMPTY, $PROXY, $RAW, $SIZE } from './symbols';
 
 export const collectionTraps: ProxyHandler<MapTypes | SetTypes> = {
   get(target, p, receiever) {
@@ -52,7 +52,7 @@ function set<T extends MapTypes>(this: T, ...kv: [unknown, unknown]) {
   const nodes = reactiveNodes.get(target)!;
   if (nodes.has(rawKey)) {
     const signal = nodes.get(rawKey)!;
-    if (!untrack(() => Object.is(toRaw(signal.get()), rawValue)))
+    if (!Object.is(toRaw(signal.peek()), rawValue))
       signal.set(reactive(rawValue));
   } else {
     const signal = wrap(rawValue);
@@ -74,7 +74,7 @@ function setHas(this: SetTypes, value: object) {
   const target = toRaw(this);
   const rawValue = toRaw(value);
   const nodes = reactiveNodes.get(target)!;
-  if (!nodes.has(rawValue)) nodes.set(rawValue, wrap(undefined));
+  if (!nodes.has(rawValue)) nodes.set(rawValue, wrap($EMPTY));
   nodes.get(rawValue)?.get();
   return target.has(rawValue);
 }
@@ -84,7 +84,7 @@ function destroy(this: MapTypes, key: unknown) {
   const rawKey = toRaw(key);
   const nodes = reactiveNodes.get(target)!;
   if (nodes.has(rawKey)) {
-    nodes.get(rawKey)?.set(undefined);
+    nodes.get(rawKey)!.set($EMPTY);
     nodes.delete(rawKey);
   }
   const deleteResult = target.delete(rawKey as object);
@@ -96,7 +96,7 @@ function destroy(this: MapTypes, key: unknown) {
 function clear(this: Map<unknown, unknown>) {
   const target = toRaw(this);
   const nodes = reactiveNodes.get(target)!;
-  nodes.forEach((node) => node.set(undefined));
+  nodes.forEach((node) => node.set($EMPTY));
   nodes.clear();
   return target.clear();
 }
@@ -117,29 +117,21 @@ function size(this: MapTypes | SetTypes) {
 function forEach<T extends Map<unknown, unknown> | Set<unknown>>(
   this: T,
   cb: (v: unknown, k: unknown, map: T) => void,
-  thisArg: T,
+  thisArg: T = this,
 ) {
-  const target = toRaw(this);
-  this.size;
-  if (isMapType(target))
-    return target.forEach((_rawValue, rawKey) => {
-      cb.call(
-        thisArg,
-        (this as Map<unknown, unknown>).get(rawKey),
-        reactive(rawKey),
-        this,
-      );
-    });
-  return target.forEach((rawValue) => {
-    cb.call(thisArg, reactive(rawValue), reactive(rawValue), this);
-  });
+  for (const entry of iterate.call(this)) {
+    const [key, value] = Array.isArray(entry) ? entry : [entry];
+    cb.call(thisArg, value ?? key, key, this);
+  }
 }
 
-function iterateMap(this: Map<unknown, unknown> | Set<unknown>) {
+function iterate(this: Map<unknown, unknown> | Set<unknown>) {
   const target = toRaw(this);
   const nodes = reactiveNodes.get(target);
   if (!nodes) return target[Symbol.iterator]();
-  return isMapType(this) ? iterateReactiveMap(this) : iterateReactiveSet(this);
+  return isMapType(this)
+    ? iterateReactiveMap(this)
+    : iterateReactiveSet(this, IterKind.VALUES);
 }
 
 function keys(this: Map<unknown, unknown> | Set<unknown>) {
@@ -179,7 +171,7 @@ const mapMethods: Partial<MapTypes> = {
     return size.call(this as Map<unknown, unknown>);
   },
   forEach,
-  [Symbol.iterator]: iterateMap as () => IterableIterator<[unknown, unknown]>,
+  [Symbol.iterator]: iterate as () => IterableIterator<[unknown, unknown]>,
   keys,
   values,
   entries,
@@ -194,7 +186,7 @@ const setMethods: Partial<SetTypes> = {
     return size.call(this as Set<unknown>);
   },
   forEach,
-  [Symbol.iterator]: iterateMap,
+  [Symbol.iterator]: iterate,
   keys,
   values,
   entries,
@@ -237,7 +229,7 @@ function iterateReactiveSet<K>(
 function iterateReactiveSet<K>(
   set: Set<K>,
   mode: IterKind.VALUES,
-): IterableIterator<V>;
+): IterableIterator<K>;
 function iterateReactiveSet<K>(
   set: Set<K>,
   mode?: IterKind.ENTRIES,
@@ -247,11 +239,11 @@ function* iterateReactiveSet<K>(
   mode: IterKind | undefined,
 ): IterableIterator<[K, K] | K> {
   const target = toRaw(set);
+  const nodes = reactiveNodes.get(target)!;
   set.size;
   for (const [rawKey] of target.entries()) {
-    const nodes = reactiveNodes.get(target);
     const reactiveKey =
-      nodes?.get(rawKey)?.get() ?? isObject(rawKey) ? reactive(rawKey) : rawKey;
+      nodes.get(rawKey)?.get() ?? isObject(rawKey) ? reactive(rawKey) : rawKey;
     if (!mode || mode === IterKind.ENTRIES) yield [reactiveKey, reactiveKey];
     else yield reactiveKey;
   }
@@ -650,6 +642,98 @@ if (import.meta.vitest) {
       await nextTick();
       expect(value).toBe(0);
       expect(keys).toBe(0);
+    });
+    describe('iterators', () => {
+      it('@@iterator', () => {
+        const map = reactive(new Set<number | string>());
+        map.add('foo');
+        map.add(69);
+        const iterator = map[Symbol.iterator]();
+        expect(iterator.next()).toEqual({ value: 'foo', done: false });
+        expect(iterator.next()).toEqual({ value: 69, done: false });
+        expect(iterator.next()).toEqual({ value: undefined, done: true });
+      });
+      it('keys()', () => {
+        const map = reactive(new Set());
+        map.add('foo');
+        map.add(69);
+        const iterator = map.keys();
+        expect(iterator.next()).toEqual({ value: 'foo', done: false });
+        expect(iterator.next()).toEqual({ value: 69, done: false });
+        expect(iterator.next()).toEqual({ value: undefined, done: true });
+      });
+      it('values()', () => {
+        const map = reactive(new Set());
+        map.add('foo');
+        map.add(69);
+        const iterator = map.values();
+        expect(iterator.next()).toEqual({ value: 'foo', done: false });
+        expect(iterator.next()).toEqual({ value: 69, done: false });
+        expect(iterator.next()).toEqual({ value: undefined, done: true });
+      });
+      it('entries()', () => {
+        const map = reactive(new Set());
+        map.add('foo');
+        map.add(69);
+        const iterator = map.entries();
+        expect(iterator.next()).toEqual({ value: ['foo', 'foo'], done: false });
+        expect(iterator.next()).toEqual({ value: [69, 69], done: false });
+        expect(iterator.next()).toEqual({ value: undefined, done: true });
+      });
+      it('react to mutations', async () => {
+        const map = reactive(new Set());
+        let keys = '';
+        let values = '';
+        let entries = '';
+        map.add('foo');
+        map.add('bar');
+        map.add('baz');
+
+        const keyFn = vi.fn(() => {
+          keys = [...map.keys()].toString();
+        });
+        new Effect(keyFn);
+
+        const valueFn = vi.fn(() => {
+          values = [...map.values()].toString();
+        });
+        new Effect(valueFn);
+
+        const entryFn = vi.fn(() => {
+          entries = [...map.entries()].map(([k, v]) => `${k}:${v}`).toString();
+        });
+        new Effect(entryFn);
+        expect(keys).toBe('foo,bar,baz');
+        expect(values).toBe('foo,bar,baz');
+        expect(entries).toBe('foo:foo,bar:bar,baz:baz');
+        [keyFn, valueFn, entryFn].forEach((fn) =>
+          expect(fn).toHaveBeenCalledTimes(1),
+        );
+        map.add('qux');
+        await nextTick();
+        expect(keys).toBe('foo,bar,baz,qux');
+        expect(values).toBe('foo,bar,baz,qux');
+        expect(entries).toBe('foo:foo,bar:bar,baz:baz,qux:qux');
+        [keyFn, valueFn, entryFn].forEach((fn) =>
+          expect(fn).toHaveBeenCalledTimes(2),
+        );
+        map.delete('bar');
+        await nextTick();
+        expect(keys).toBe('foo,baz,qux');
+        expect(values).toBe('foo,baz,qux');
+        expect(entries).toBe('foo:foo,baz:baz,qux:qux');
+        [keyFn, valueFn, entryFn].forEach((fn) =>
+          expect(fn).toHaveBeenCalledTimes(3),
+        );
+        map.add('foo');
+        await nextTick();
+        expect(keys).toBe('foo,baz,qux');
+        expect(values).toBe('foo,baz,qux');
+        expect(entries).toBe('foo:foo,baz:baz,qux:qux');
+        [keyFn, valueFn, entryFn].forEach((fn) =>
+          expect(fn).toHaveBeenCalledTimes(3),
+        );
+      });
     });
   });
 }

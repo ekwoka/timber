@@ -45,9 +45,7 @@ export const effectStack: Effect[] = [];
 const effectQueue: Effect[] = [];
 let waitingForEffects = false;
 const addToEffectQueue = (effect: Effect) => {
-  const position = effectQueue.findIndex((e) => e.id > effect.id);
-  if (position > -1) effectQueue.splice(position, 0, effect);
-  else effectQueue.push(effect);
+  effectQueue.push(effect);
   if (waitingForEffects) return;
   waitingForEffects = true;
   queueMicrotask(processEffects);
@@ -123,5 +121,20 @@ if (import.meta.vitest) {
     });
     it('knows it is an Effect', () =>
       expect(new Effect(() => {}).toString()).toBe('[object Effect]'));
+  });
+  describe('release', () => {
+    it('can release effects', async () => {
+      const signal = new Signal(1);
+      let value: number = 0;
+      const effect = new Effect(() => (value = signal.get()));
+      expect(value).toBe(1);
+      signal.set(42);
+      await nextTick();
+      expect(value).toBe(42);
+      release(effect);
+      signal.set(100);
+      await nextTick();
+      expect(value).toBe(42);
+    });
   });
 }

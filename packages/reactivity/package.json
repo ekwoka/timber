@@ -2,6 +2,7 @@
   "name": "@timber/reactivity",
   "version": "0.0.1",
   "description": "",
+  "type": "module",
   "private": true,
   "sideeffects": false,
   "author": {
@@ -26,7 +27,6 @@
     "dist",
     "src"
   ],
-  "type": "module",
   "scripts": {
     "build": "vite build",
     "coverage": "vitest run --coverage",

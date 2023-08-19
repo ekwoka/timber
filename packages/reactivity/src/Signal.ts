@@ -25,6 +25,9 @@ export class Signal<T = unknown> {
     this.value = value;
     this.dependents.forEach((effect) => effect.rerun());
   }
+  peek() {
+    return this.value;
+  }
   release(effect: Effect) {
     this.dependents.delete(effect);
   }

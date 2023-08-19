@@ -1,22 +1,15 @@
 export type MapTypes = Map<unknown, unknown> | WeakMap<object, unknown>;
 export type SetTypes = Set<unknown> | WeakSet<object>;
-export type WeakTypes = Set<unknown> | WeakSet<object>;
-
-type hasToStringTag = {
-  [Symbol.toStringTag]: string;
-};
-
-const isOfClass = (obj: hasToStringTag, classType: string): boolean =>
-  obj[Symbol.toStringTag]?.includes(classType);
+export type WeakTypes = WeakMap<object, unknown> | WeakSet<object>;
 
 export const isWeakType = (obj: object): obj is WeakTypes =>
-  isOfClass(obj as WeakTypes, 'Weak');
+  (obj as WeakTypes)[Symbol.toStringTag]?.includes('Weak');
 
 export const isSetType = (obj: object): obj is SetTypes =>
-  isOfClass(obj as SetTypes, 'Set');
+  (obj as SetTypes)[Symbol.toStringTag]?.includes('Set');
 
 export const isMapType = (obj: object): obj is MapTypes =>
-  isOfClass(obj as MapTypes, 'Map');
+  (obj as MapTypes)[Symbol.toStringTag]?.includes('Map');
 
 if (import.meta.vitest) {
   describe('isOfClass', () => {

@@ -135,7 +135,7 @@ function forEach<T extends Map<unknown, unknown> | Set<unknown>>(
   });
 }
 
-function iterateMap(this: Map<unknown, unknown> | Set<unknown>) {
+function iterate(this: Map<unknown, unknown> | Set<unknown>) {
   const target = toRaw(this);
   const nodes = reactiveNodes.get(target);
   if (!nodes) return target[Symbol.iterator]();
@@ -179,7 +179,7 @@ const mapMethods: Partial<MapTypes> = {
     return size.call(this as Map<unknown, unknown>);
   },
   forEach,
-  [Symbol.iterator]: iterateMap as () => IterableIterator<[unknown, unknown]>,
+  [Symbol.iterator]: iterate as () => IterableIterator<[unknown, unknown]>,
   keys,
   values,
   entries,
@@ -194,7 +194,7 @@ const setMethods: Partial<SetTypes> = {
     return size.call(this as Set<unknown>);
   },
   forEach,
-  [Symbol.iterator]: iterateMap,
+  [Symbol.iterator]: iterate,
   keys,
   values,
   entries,
@@ -247,9 +247,9 @@ function* iterateReactiveSet<K>(
   mode: IterKind | undefined,
 ): IterableIterator<[K, K] | K> {
   const target = toRaw(set);
+  const nodes = reactiveNodes.get(target)!;
   set.size;
   for (const [rawKey] of target.entries()) {
-    const nodes = reactiveNodes.get(target)!;
     const reactiveKey =
       nodes.get(rawKey)?.get() ?? isObject(rawKey) ? reactive(rawKey) : rawKey;
     if (!mode || mode === IterKind.ENTRIES) yield [reactiveKey, reactiveKey];

@@ -117,29 +117,21 @@ function size(this: MapTypes | SetTypes) {
 function forEach<T extends Map<unknown, unknown> | Set<unknown>>(
   this: T,
   cb: (v: unknown, k: unknown, map: T) => void,
-  thisArg: T,
+  thisArg: T = this,
 ) {
-  const target = toRaw(this);
-  this.size;
-  if (isMapType(target))
-    return target.forEach((_rawValue, rawKey) => {
-      cb.call(
-        thisArg,
-        (this as Map<unknown, unknown>).get(rawKey),
-        reactive(rawKey),
-        this,
-      );
-    });
-  return target.forEach((rawValue) => {
-    cb.call(thisArg, reactive(rawValue), reactive(rawValue), this);
-  });
+  for (const entry of iterate.call(this)) {
+    const [key, value] = Array.isArray(entry) ? entry : [entry];
+    cb.call(thisArg, value ?? key, key, this);
+  }
 }
 
 function iterate(this: Map<unknown, unknown> | Set<unknown>) {
   const target = toRaw(this);
   const nodes = reactiveNodes.get(target);
   if (!nodes) return target[Symbol.iterator]();
-  return isMapType(this) ? iterateReactiveMap(this) : iterateReactiveSet(this);
+  return isMapType(this)
+    ? iterateReactiveMap(this)
+    : iterateReactiveSet(this, IterKind.VALUES);
 }
 
 function keys(this: Map<unknown, unknown> | Set<unknown>) {
@@ -650,6 +642,98 @@ if (import.meta.vitest) {
       await nextTick();
       expect(value).toBe(0);
       expect(keys).toBe(0);
+    });
+    describe('iterators', () => {
+      it('@@iterator', () => {
+        const map = reactive(new Set<number | string>());
+        map.add('foo');
+        map.add(69);
+        const iterator = map[Symbol.iterator]();
+        expect(iterator.next()).toEqual({ value: 'foo', done: false });
+        expect(iterator.next()).toEqual({ value: 69, done: false });
+        expect(iterator.next()).toEqual({ value: undefined, done: true });
+      });
+      it('keys()', () => {
+        const map = reactive(new Set());
+        map.add('foo');
+        map.add(69);
+        const iterator = map.keys();
+        expect(iterator.next()).toEqual({ value: 'foo', done: false });
+        expect(iterator.next()).toEqual({ value: 69, done: false });
+        expect(iterator.next()).toEqual({ value: undefined, done: true });
+      });
+      it('values()', () => {
+        const map = reactive(new Set());
+        map.add('foo');
+        map.add(69);
+        const iterator = map.values();
+        expect(iterator.next()).toEqual({ value: 'foo', done: false });
+        expect(iterator.next()).toEqual({ value: 69, done: false });
+        expect(iterator.next()).toEqual({ value: undefined, done: true });
+      });
+      it('entries()', () => {
+        const map = reactive(new Set());
+        map.add('foo');
+        map.add(69);
+        const iterator = map.entries();
+        expect(iterator.next()).toEqual({ value: ['foo', 'foo'], done: false });
+        expect(iterator.next()).toEqual({ value: [69, 69], done: false });
+        expect(iterator.next()).toEqual({ value: undefined, done: true });
+      });
+      it('react to mutations', async () => {
+        const map = reactive(new Set());
+        let keys = '';
+        let values = '';
+        let entries = '';
+        map.add('foo');
+        map.add('bar');
+        map.add('baz');
+
+        const keyFn = vi.fn(() => {
+          keys = [...map.keys()].toString();
+        });
+        new Effect(keyFn);
+
+        const valueFn = vi.fn(() => {
+          values = [...map.values()].toString();
+        });
+        new Effect(valueFn);
+
+        const entryFn = vi.fn(() => {
+          entries = [...map.entries()].map(([k, v]) => `${k}:${v}`).toString();
+        });
+        new Effect(entryFn);
+        expect(keys).toBe('foo,bar,baz');
+        expect(values).toBe('foo,bar,baz');
+        expect(entries).toBe('foo:foo,bar:bar,baz:baz');
+        [keyFn, valueFn, entryFn].forEach((fn) =>
+          expect(fn).toHaveBeenCalledTimes(1),
+        );
+        map.add('qux');
+        await nextTick();
+        expect(keys).toBe('foo,bar,baz,qux');
+        expect(values).toBe('foo,bar,baz,qux');
+        expect(entries).toBe('foo:foo,bar:bar,baz:baz,qux:qux');
+        [keyFn, valueFn, entryFn].forEach((fn) =>
+          expect(fn).toHaveBeenCalledTimes(2),
+        );
+        map.delete('bar');
+        await nextTick();
+        expect(keys).toBe('foo,baz,qux');
+        expect(values).toBe('foo,baz,qux');
+        expect(entries).toBe('foo:foo,baz:baz,qux:qux');
+        [keyFn, valueFn, entryFn].forEach((fn) =>
+          expect(fn).toHaveBeenCalledTimes(3),
+        );
+        map.add('foo');
+        await nextTick();
+        expect(keys).toBe('foo,baz,qux');
+        expect(values).toBe('foo,baz,qux');
+        expect(entries).toBe('foo:foo,baz:baz,qux:qux');
+        [keyFn, valueFn, entryFn].forEach((fn) =>
+          expect(fn).toHaveBeenCalledTimes(3),
+        );
+      });
     });
   });
 }

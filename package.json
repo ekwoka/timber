@@ -26,10 +26,10 @@
   "devDependencies": {
     "@milahu/patch-package": "6.4.14",
     "@trivago/prettier-plugin-sort-imports": "4.2.0",
-    "@types/node": "20.5.0",
+    "@types/node": "20.5.1",
     "@typescript-eslint/eslint-plugin": "6.4.0",
     "@typescript-eslint/parser": "6.4.0",
-    "@vitest/ui": "0.34.1",
+    "@vitest/ui": "0.34.2",
     "esbuild": "0.19.2",
     "eslint": "8.47.0",
     "happy-dom": "9.1.9",
@@ -42,7 +42,7 @@
     "vite": "4.4.9",
     "vite-plugin-dts": "3.5.2",
     "vite-tsconfig-paths": "4.2.0",
-    "vitest": "0.34.1",
+    "vitest": "0.34.2",
     "vitest-dom": "0.1.0"
   },
   "lint-staged": {

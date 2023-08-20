@@ -28,9 +28,6 @@ export default defineConfig({
     globals: true,
     include: ['./**/*{.spec,.test}.{ts,tsx}'],
     includeSource: ['./**/*.{ts,tsx}'],
-    coverage: {
-      reporter: ['text-summary', 'text', 'html'],
-    },
     reporters: ['dot'],
     deps: {},
     useAtomics: true,

@@ -1,5 +1,5 @@
 import { Effect } from '../Effect';
-import { Signal } from '../Signal';
+import { Signal, computed } from '../Signal';
 import { nextTick } from '../nextTick';
 import {
   isGetter,
@@ -12,7 +12,7 @@ import {
 import { collectionTraps } from './collectionMethods';
 import { proxyMap } from './proxyMap';
 import { reactiveNodes } from './reactiveNodes';
-import { $PROXY, $RAW } from './symbols';
+import { $CACHEGETTERS, $PROXY, $RAW } from './symbols';
 
 export const reactive = <T>(obj: T): T => {
   const rawObj = toRaw(obj);
@@ -45,18 +45,17 @@ const defaultTraps = {
     if (p === $PROXY) return true;
     return p in target;
   },
-  get<T extends object>(target: T, p: string | symbol, reciever: T) {
+  get<T extends object>(target: T, p: string | symbol, receiver: T) {
     if (p === $RAW) return target;
     if (p === $PROXY) return proxyMap.get(target);
     if (!(p in target)) return undefined;
 
     if (!Object.hasOwnProperty.call(target, p))
-      return Reflect.get(target, p, reciever);
+      return Reflect.get(target, p, receiver);
 
-    if (isGetter(target, p)) return Reflect.get(target, p, reciever);
+    const nodes = reactiveNodes.get(target)!;
 
-    const nodes = reactiveNodes.get(target);
-    if (!nodes) return undefined;
+    if (isGetter(target, p)) return handleGetter(target, p, receiver, nodes);
     if (nodes.has(p)) return nodes.get(p)?.get();
     const signal = wrap(Reflect.get(target, p));
     nodes.set(p, signal);
@@ -66,12 +65,12 @@ const defaultTraps = {
     target: T,
     p: string | symbol,
     newValue: unknown,
-    reciever: T,
+    receiver: T,
   ) {
     const nodes = reactiveNodes.get(target);
     if (!nodes) return false;
 
-    if (isSetter(target, p)) return Reflect.set(target, p, newValue, reciever);
+    if (isSetter(target, p)) return Reflect.set(target, p, newValue, receiver);
 
     if (nodes.has(p)) {
       if (nodes.get(p)?.peek() === newValue) return true;
@@ -89,6 +88,29 @@ export const wrap = <T>(item: T): Signal<T> => {
   if (item instanceof Signal) return item;
   if (isObject(item)) return new Signal(reactive(item));
   return new Signal(item);
+};
+
+export const handleGetter = <T extends object>(
+  target: T,
+  p: string | symbol,
+  receiver: T,
+  nodes: Map<unknown, Signal<unknown>>,
+) => {
+  const toCache = Reflect.get(target, $CACHEGETTERS, receiver) as
+    | boolean
+    | (string | symbol)[];
+  if (Array.isArray(toCache) ? !toCache.includes(p) : !toCache)
+    return Reflect.get(target, p, receiver);
+  return (
+    nodes.has(p)
+      ? nodes
+      : nodes.set(
+          p,
+          computed(() => Reflect.get(target, p, receiver)),
+        )
+  )
+    .get(p)!
+    .get();
 };
 
 export const toRaw = <T>(obj: T): T =>
@@ -198,6 +220,66 @@ if (import.meta.vitest) {
         new Effect(() => (value = data.foo));
         expect(value).toBe(42);
         data.foo = 100;
+        await nextTick();
+        expect(value).toBe(100);
+      });
+      it('does not cache getters', () => {
+        let num = 0;
+        const fn = vi.fn(() => ++num);
+        const data = reactive({
+          get foo() {
+            return fn();
+          },
+        });
+        expect(data.foo).to.not.equal(data.foo);
+        expect(fn).toBeCalledTimes(2);
+      });
+      it('can cache all getters', () => {
+        let num = 0;
+        const fn = vi.fn(() => ++num);
+        const data = reactive({
+          get foo() {
+            return fn();
+          },
+          get bar() {
+            return fn();
+          },
+          [$CACHEGETTERS]: true,
+        });
+        expect(data.foo).to.equal(data.foo);
+        expect(fn).toBeCalledTimes(1);
+        expect(data.bar).to.equal(data.bar);
+        expect(fn).toBeCalledTimes(2);
+      });
+      it('can cache only listed getters', () => {
+        let num = 0;
+        const fn = vi.fn(() => ++num);
+        const data = reactive({
+          get foo() {
+            return fn();
+          },
+          get bar() {
+            return fn();
+          },
+          [$CACHEGETTERS]: ['foo'],
+        });
+        expect(data.foo).to.equal(data.foo);
+        expect(fn).toBeCalledTimes(1);
+        expect(data.bar).to.not.equal(data.bar);
+        expect(fn).toBeCalledTimes(3);
+      });
+      it('cached getters are reactive', async () => {
+        const data = reactive({
+          get foo() {
+            return this.bar;
+          },
+          bar: 42,
+          [$CACHEGETTERS]: true,
+        });
+        let value = 0;
+        new Effect(() => (value = data.foo));
+        expect(value).toBe(42);
+        data.bar = 100;
         await nextTick();
         expect(value).toBe(100);
       });

@@ -20,6 +20,7 @@ export default defineConfig({
     '"$RAW"': '',
     '"$SIZE"': '',
     '"$EMPTY"': '',
+    '"$CACHEGETTERS"': '',
   },
   build: {
     target: 'esnext',

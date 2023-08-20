@@ -1,0 +1,1 @@
+export { functionFromExpression } from './functionFromExpression';

@@ -1,4 +1,14 @@
 {
+  "core": {
+    "minified": {
+      "pretty": "472 B",
+      "raw": 472
+    },
+    "brotli": {
+      "pretty": "289 B",
+      "raw": 289
+    }
+  },
   "reactivity": {
     "minified": {
       "pretty": "4.73 kB",

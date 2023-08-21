@@ -80,6 +80,8 @@ importers:
         specifier: workspace:^
         version: link:../reactivity
 
+  packages/core: {}
+
   packages/reactivity: {}
 
 packages:

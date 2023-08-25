@@ -5,7 +5,7 @@ export const evaluateLater = (expression: string, state = {}) => {
 };
 
 if (import.meta.vitest) {
-  describe('evaluateLater', () => {
+  describe.concurrent('evaluateLater', () => {
     it('returns a function that can be called later', async () => {
       const fn = evaluateLater('1 + 2');
       expect(await fn()).toBe(3);

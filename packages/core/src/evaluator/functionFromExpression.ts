@@ -38,7 +38,7 @@ const tryOr = <T>(fn: () => T, fallback: T) => {
 };
 
 if (import.meta.vitest) {
-  describe('functionFromString', () => {
+  describe.concurrent('functionFromString', () => {
     it('creates functions from expressions', async () => {
       const fn = functionFromExpression('foo + bar');
       expect(await fn({ foo: 1, bar: 2 })).toBe(3);

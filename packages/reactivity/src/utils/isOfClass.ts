@@ -12,7 +12,7 @@ export const isMapType = (obj: object): obj is MapTypes =>
   (obj as MapTypes)[Symbol.toStringTag]?.includes('Map');
 
 if (import.meta.vitest) {
-  describe('isOfClass', () => {
+  describe.concurrent('isOfClass', () => {
     it('can identify Map Types', () => {
       expect(isMapType(new Map())).toBe(true);
       expect(isMapType(new WeakMap())).toBe(true);

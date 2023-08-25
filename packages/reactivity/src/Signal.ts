@@ -49,7 +49,7 @@ export const computed = <T>(cb: () => T): Signal<T> => {
 };
 
 if (import.meta.vitest) {
-  describe('Signal', () => {
+  describe.concurrent('Signal', () => {
     it('wraps values with Signal', () => {
       const signal = new Signal(1);
       expect(signal.get()).toBe(1);
@@ -75,7 +75,7 @@ if (import.meta.vitest) {
     it('knows it is a Signal', () =>
       expect(new Signal(1).toString()).toEqual('[object Signal]'));
   });
-  describe('computed Signal', () => {
+  describe.concurrent('computed Signal', () => {
     it('can derive a Signal from a function', () => {
       const computedSignal = computed(() => 1);
       expect(computedSignal.get()).toBe(1);

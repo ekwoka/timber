@@ -5,7 +5,7 @@ export const evaluate = (expression: string, state = {}) => {
 };
 
 if (import.meta.vitest) {
-  describe('evaluate', () => {
+  describe.concurrent('evaluate', () => {
     it('immediately evalutes an expression', async () => {
       expect(await evaluate('foo + bar', { foo: 1, bar: 2 })).toBe(3);
     });

@@ -1,4 +1,9 @@
-export { addScopeToNode, getContext, nearestContext } from './data/data';
+export {
+  addScopeToNode,
+  getContext,
+  nearestContext,
+  refreshScope,
+} from './data/data';
 export { evaluate } from './evaluator/evaluate';
 export { evaluateLater } from './evaluator/evaluateLater';
 export { functionFromExpression } from './evaluator/functionFromExpression';

@@ -250,7 +250,7 @@ function* iterateReactiveSet<K>(
 }
 
 if (import.meta.vitest) {
-  describe('(Weak)Map', () => {
+  describe.concurrent('(Weak)Map', () => {
     it('can handle Map', async () => {
       const map = reactive(new Map());
       map.set('foo', 42);
@@ -375,7 +375,7 @@ if (import.meta.vitest) {
       expect(map.has(key2)).toBe(true);
       expect(value).toBe(489);
     });
-    describe('.size', () => {
+    describe.concurrent('.size', () => {
       it('can get the size', () => {
         const map = reactive(new Map());
         expect(map.size).toBe(0);
@@ -435,7 +435,7 @@ if (import.meta.vitest) {
         expect(fn).toHaveBeenCalledTimes(1);
       });
     });
-    describe('.forEach', () => {
+    describe.concurrent('.forEach', () => {
       it('iterates over all pairs', () => {
         const map = reactive(new Map());
         map.set('foo', 42);
@@ -508,7 +508,7 @@ if (import.meta.vitest) {
         expect(value).toBe(500);
       });
     });
-    describe('iterators', () => {
+    describe.concurrent('iterators', () => {
       it('@@iterator', () => {
         const map = reactive(new Map());
         map.set('foo', 42);
@@ -600,7 +600,7 @@ if (import.meta.vitest) {
       });
     });
   });
-  describe('(Weak)Set', () => {
+  describe.concurrent('(Weak)Set', () => {
     it('can handle Set', () => {
       const set = reactive(new Set());
       set.add(42);
@@ -643,7 +643,7 @@ if (import.meta.vitest) {
       expect(value).toBe(0);
       expect(keys).toBe(0);
     });
-    describe('iterators', () => {
+    describe.concurrent('iterators', () => {
       it('@@iterator', () => {
         const map = reactive(new Set<number | string>());
         map.add('foo');

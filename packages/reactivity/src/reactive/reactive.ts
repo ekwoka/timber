@@ -117,7 +117,7 @@ export const toRaw = <T>(obj: T): T =>
   isObject(obj) ? (Reflect.get(obj, $RAW) as T) ?? obj : obj;
 
 if (import.meta.vitest) {
-  describe('reactive', () => {
+  describe.concurrent('reactive', () => {
     it('can create reactive objects', async () => {
       const data = reactive({
         foo: 0b1,
@@ -149,7 +149,7 @@ if (import.meta.vitest) {
       });
       expect(reactive(obj)).toBe(obj);
     });
-    describe('objects', () => {
+    describe.concurrent('objects', () => {
       it('handles nested reactive objects', async () => {
         const info = reactive({
           names: {
@@ -284,7 +284,7 @@ if (import.meta.vitest) {
         expect(value).toBe(100);
       });
     });
-    describe('arrays', () => {
+    describe.concurrent('arrays', () => {
       it('can handle reactive arrays', async () => {
         const arr = reactive([0b1, 0b10, 0b100]);
         let value = 0b0;

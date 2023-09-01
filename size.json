@@ -1,4 +1,14 @@
 {
+  "core": {
+    "minified": {
+      "pretty": "915 B",
+      "raw": 915
+    },
+    "brotli": {
+      "pretty": "485 B",
+      "raw": 485
+    }
+  },
   "reactivity": {
     "minified": {
       "pretty": "4.73 kB",
@@ -11,12 +21,12 @@
   },
   "alpinejs": {
     "minified": {
-      "pretty": "36 kB",
-      "raw": 35967
+      "pretty": "35.9 kB",
+      "raw": 35865
     },
     "brotli": {
-      "pretty": "12 kB",
-      "raw": 11998
+      "pretty": "11.9 kB",
+      "raw": 11948
     }
   }
 }

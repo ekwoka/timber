@@ -61,7 +61,7 @@ export const release = (effect: Effect) => effect.release(true);
 export const stop = release;
 
 if (import.meta.vitest) {
-  describe('Effect', () => {
+  describe.concurrent('Effect', () => {
     it('can register reactive effects', async () => {
       const signal = new Signal(1);
       let value: number = 0;
@@ -122,7 +122,7 @@ if (import.meta.vitest) {
     it('knows it is an Effect', () =>
       expect(new Effect(() => {}).toString()).toBe('[object Effect]'));
   });
-  describe('release', () => {
+  describe.concurrent('release', () => {
     it('can release effects', async () => {
       const signal = new Signal(1);
       let value: number = 0;

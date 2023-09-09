@@ -1,9 +1,8 @@
 {
-  "name": "@timber/reactivity",
+  "name": "@timberts/reactivity",
   "version": "0.0.1",
   "description": "",
   "type": "module",
-  "private": true,
   "sideeffects": false,
   "author": {
     "name": "Eric Kwoka",
@@ -21,6 +20,7 @@
     },
     "./package.json": "./package.json"
   },
+  "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [

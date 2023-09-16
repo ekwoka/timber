@@ -26,11 +26,11 @@ jobs:
       matrix:
         package: ${{ fromJSON(needs.collection-packages.outputs.packages) }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 20
 
       - uses: pogfi/pnpm-install-cache@v0.0.2
         name: Install pnpm

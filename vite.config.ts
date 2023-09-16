@@ -8,9 +8,9 @@ const accessOwnSources = () => {
     name: 'access-own-package-sources',
     enforce: 'pre' as const,
     resolveId(id: string) {
-      if (id.startsWith('@timber') && !id.endsWith('src')) {
+      if (id.startsWith('@timberts') && !id.endsWith('src')) {
         return {
-          id: resolve(`./packages/${id.replace('@timber/', '')}/src`),
+          id: resolve(`./packages/${id.replace('@timberts/', '')}/src`),
           external: false,
         };
       }

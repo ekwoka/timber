@@ -1,12 +1,22 @@
 {
   "core": {
     "minified": {
-      "pretty": "915 B",
-      "raw": 915
+      "pretty": "343 B",
+      "raw": 343
     },
     "brotli": {
-      "pretty": "485 B",
-      "raw": 485
+      "pretty": "213 B",
+      "raw": 213
+    }
+  },
+  "evaluator": {
+    "minified": {
+      "pretty": "708 B",
+      "raw": 708
+    },
+    "brotli": {
+      "pretty": "394 B",
+      "raw": 394
     }
   },
   "reactivity": {

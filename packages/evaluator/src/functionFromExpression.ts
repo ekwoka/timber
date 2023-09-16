@@ -14,8 +14,11 @@ const isInvalidRHS = (expression: string) =>
 
 const anoop = async () => {};
 const AsyncFunction = anoop.constructor;
-export const functionFromExpression = (expression: string) => {
-  if (funcCache.has(expression)) return funcCache.get(expression)!;
+export const functionFromExpression = <T>(expression: string) => {
+  if (funcCache.has(expression))
+    return funcCache.get(expression)! as (
+      state: Record<string | symbol | number, unknown>,
+    ) => Promise<T>;
   const blockBodyExpression = isInvalidRHS(expression)
     ? expression
     : `return ${expression}`;
@@ -26,7 +29,9 @@ export const functionFromExpression = (expression: string) => {
   funcCache.set(expression, func);
   if (func === anoop && !import.meta.vitest)
     console.error('Invalid Function Expression: ', expression);
-  return func;
+  return func as (
+    state: Record<string | symbol | number, unknown>,
+  ) => Promise<T>;
 };
 
 const tryOr = <T>(fn: () => T, fallback: T) => {

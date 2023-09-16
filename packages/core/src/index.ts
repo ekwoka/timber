@@ -3,9 +3,5 @@ export {
   getContext,
   nearestContext,
   refreshScope,
-} from './data/data';
-export { evaluate } from './evaluator/evaluate';
-export { evaluateLater } from './evaluator/evaluateLater';
-export { functionFromExpression } from './evaluator/functionFromExpression';
-export { nextTick } from './nextTick';
+} from './data';
 export type { ComponentContext, ArbitraryData } from './data/data';

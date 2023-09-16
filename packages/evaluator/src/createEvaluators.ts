@@ -1,5 +1,3 @@
-import { functionFromExpression } from './functionFromExpression';
-
 type FunctionCreator = <T>(
   expression: string,
 ) => (scope: ArbitraryData) => Promise<T>;
@@ -17,6 +15,7 @@ export const createEvaluators = (functionFromExpression: FunctionCreator) => {
 };
 
 if (import.meta.vitest) {
+  const { functionFromExpression } = await import('./functionFromExpression');
   describe.concurrent('evaluate', () => {
     const { evaluate } = createEvaluators(functionFromExpression);
     it('immediately evalutes an expression', async () => {

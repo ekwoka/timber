@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { brotliCompressSync } from 'node:zlib';
 import prettyBytes from 'pretty-bytes';
 
-const packages = ['core', 'reactivity', 'alpinejs'];
+const packages = ['core', 'evaluator', 'reactivity', 'alpinejs'];
 
 const oldValues = JSON.parse(await readFile('size.json', 'utf8'));
 const bundleCode = async (pkg) => {

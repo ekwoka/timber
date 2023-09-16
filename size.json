@@ -9,6 +9,16 @@
       "raw": 213
     }
   },
+  "evaluator": {
+    "minified": {
+      "pretty": "505 B",
+      "raw": 505
+    },
+    "brotli": {
+      "pretty": "305 B",
+      "raw": 305
+    }
+  },
   "reactivity": {
     "minified": {
       "pretty": "4.73 kB",

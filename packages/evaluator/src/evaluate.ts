@@ -1,7 +1,7 @@
 import { functionFromExpression } from './functionFromExpression';
 
-export const evaluate = (expression: string, state = {}) => {
-  return functionFromExpression(expression)(state);
+export const evaluate = <T>(expression: string, state = {}) => {
+  return functionFromExpression<T>(expression)(state);
 };
 
 if (import.meta.vitest) {

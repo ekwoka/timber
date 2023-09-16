@@ -1,7 +1,7 @@
 import { functionFromExpression } from './functionFromExpression';
 
-export const evaluateLater = (expression: string, state = {}) => {
-  return functionFromExpression(expression).bind(null, state);
+export const evaluateLater = <T>(expression: string, state = {}) => {
+  return functionFromExpression<T>(expression).bind(null, state);
 };
 
 if (import.meta.vitest) {

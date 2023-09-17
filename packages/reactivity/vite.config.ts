@@ -16,11 +16,11 @@ export default defineConfig({
   define: {
     'import.meta.vitest': 'undefined',
     'import.meta.DEBUG': 'false',
-    '"$PROXY"': '',
-    '"$RAW"': '',
-    '"$SIZE"': '',
-    '"$EMPTY"': '',
-    '"$CACHEGETTERS"': '',
+    '"$PROXY"': '""',
+    '"$RAW"': '""',
+    '"$SIZE"': '""',
+    '"$EMPTY"': '""',
+    '"$CACHEGETTERS"': '""',
   },
   build: {
     target: 'esnext',
@@ -40,5 +40,13 @@ export default defineConfig({
         sourcemap: true,
       },
     },
+  },
+  test: {
+    globals: true,
+    include: ['./**/*{.spec,.test}.{ts,tsx}'],
+    includeSource: ['./**/*.{ts,tsx}'],
+    reporters: ['dot'],
+    deps: {},
+    useAtomics: true,
   },
 });

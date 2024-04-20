@@ -29,14 +29,14 @@
       "raw": 1615
     }
   },
-  "alpinejs": {
+  "timberts": {
     "minified": {
-      "pretty": "35.9 kB",
-      "raw": 35875
+      "pretty": "6.11 kB",
+      "raw": 6106
     },
     "brotli": {
-      "pretty": "12 kB",
-      "raw": 11960
+      "pretty": "2.15 kB",
+      "raw": 2148
     }
   }
 }

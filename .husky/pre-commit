@@ -2,7 +2,7 @@
 . "$(dirname -- "$0")/_/husky.sh"
 
 pnpm run lint:staged
-pnpm run test --run
+pnpm run test:run
 pnpm run build
 pnpm run size
 git add size.json

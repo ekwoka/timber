@@ -6,20 +6,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AlpineTS Sandbox</title>
     <script type="module">
-      import Alpine from '../packages/timberts/src/index.ts';
+      import Timber from '../packages/timberts/src';
 
-      Alpine.store('foo', {
-        bar: 'bar',
-      });
-
-      window.Alpine = Alpine;
-      Alpine.start();
+      new Timber().start();
     </script>
   </head>
-  <body>
-    <div x-data>
-      <span x-text="$store.foo.bar"></span>
-      <button @click="$store.foo.bar = 'baz'">change</button>
+  <body
+    style="
+      background: black;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    ">
+    <div
+      x-data="{ hello: 'world' }"
+      style="
+        max-width: max-content;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      ">
+      <span x-text="hello">Not working</span>
+      <button @click="hello = 'mom'">change</button>
     </div>
   </body>
 </html>

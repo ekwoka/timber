@@ -19,7 +19,7 @@ const accessOwnSources = () => {
 };
 
 export default defineConfig({
-  root: resolve(__dirname),
+  root: resolve(__dirname, 'sandbox'),
   plugins: [tsconfigPaths(), accessOwnSources()],
   build: {
     target: 'esnext',

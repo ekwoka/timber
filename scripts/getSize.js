@@ -1,9 +1,9 @@
 import { build } from 'esbuild';
-import { readFile, writeFile } from 'node:fs/promises';
-import { brotliCompressSync } from 'node:zlib';
+import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { brotliCompress } from 'node:zlib';
 import prettyBytes from 'pretty-bytes';
 
-const packages = ['core', 'evaluator', 'reactivity', 'timberts'];
+const packages = await readdir('packages');
 
 const oldValues = JSON.parse(await readFile('size.json', 'utf8'));
 const bundleCode = async (pkg) => {
@@ -25,7 +25,7 @@ const bundleCode = async (pkg) => {
     mainFields: ['module', 'main'],
   });
 
-  const { minified, brotli } = getSizes(outputFiles[0].contents);
+  const { minified, brotli } = await getSizes(outputFiles[0].contents);
   const oldPkg = oldValues[pkg];
   console.log(`${pkg}:
   Bundle: ${makeMessage(oldPkg?.minified, minified)},
@@ -43,9 +43,16 @@ const sizeInfo = (bytesSize) => ({
 
 const getBytes = (str) => Buffer.byteLength(str, 'utf8');
 
-const getSizes = (code) => {
+const brotlify = (content) =>
+  new Promise((resolve, reject) =>
+    brotliCompress(content, (err, result) =>
+      err ? reject(err) : resolve(result),
+    ),
+  );
+
+const getSizes = async (code) => {
   const minifiedSize = getBytes(code);
-  const brotliSize = getBytes(brotliCompressSync(code));
+  const brotliSize = getBytes(await brotlify(code));
 
   return { minified: sizeInfo(minifiedSize), brotli: sizeInfo(brotliSize) };
 };

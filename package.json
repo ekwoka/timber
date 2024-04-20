@@ -1,5 +1,5 @@
 {
-  "name": "timberts",
+  "name": "timberts-internal",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,6 +9,9 @@
     "url": "https://thekwoka.net/"
   },
   "license": "MIT",
+  "dependencies": {
+    "timberts": "workspace:^"
+  },
   "scripts": {
     "build": "pnpm run -r build",
     "doctor": "run-s lint test:run build size",

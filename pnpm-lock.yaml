@@ -37,6 +37,10 @@ overrides:
 importers:
 
   .:
+    dependencies:
+      timberts:
+        specifier: workspace:^
+        version: link:packages/timberts
     devDependencies:
       '@milahu/patch-package':
         specifier: 6.4.14
@@ -104,6 +108,23 @@ importers:
   packages/evaluator: {}
 
   packages/reactivity: {}
+
+  packages/timberts:
+    dependencies:
+      '@timberts/core':
+        specifier: workspace:^
+        version: link:../core
+      '@timberts/evaluator':
+        specifier: workspace:^
+        version: link:../evaluator
+      '@timberts/reactivity':
+        specifier: workspace:^
+        version: link:../reactivity
+      '@timberts/walker':
+        specifier: workspace:^
+        version: link:../walker
+
+  packages/walker: {}
 
 packages:
 

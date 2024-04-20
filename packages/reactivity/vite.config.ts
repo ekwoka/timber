@@ -42,5 +42,6 @@ export default defineConfig({
     includeSource: ['./**/*.{ts,tsx}'],
     reporters: ['dot'],
     deps: {},
+    passWithNoTests: true,
   },
 });

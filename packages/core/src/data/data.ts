@@ -12,7 +12,7 @@ export const getContext = (el: Element) => elementContext.get(el);
 
 export const nearestContext = (el: Element) => {
   while (el) {
-    if (elementContext.has(el)) return elementContext.get(el);
+    if (elementContext.has(el)) return elementContext.get(el)!;
     el = el.parentElement!;
   }
   return null;

@@ -25,6 +25,7 @@ export default defineConfig({
       formats: ['es'],
     },
     minify: false,
+    sourcemap: true,
     rollupOptions: {
       output: {
         preserveModules: true,
@@ -32,7 +33,6 @@ export default defineConfig({
         entryFileNames: ({ name: fileName }) => {
           return `${fileName}.js`;
         },
-        sourcemap: true,
       },
     },
   },

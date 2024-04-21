@@ -6,9 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AlpineTS Sandbox</title>
     <script type="module">
-      import Timber from 'timberts/src';
+      import Timber, { data, on, text } from 'timberts/src';
 
-      new Timber().start();
+      new Timber()
+        .directive('data', data)
+        .directive('text', text)
+        .directive('on', on)
+        .start();
     </script>
   </head>
   <body
@@ -29,7 +33,10 @@
         gap: 8px;
       ">
       <span x-text="hello">Not working</span>
-      <button @click="hello = 'mom'">change</button>
+      <button
+        x-on:click="hello = ['mom', 'hello', 'world', 'random', 'number'][Math.random()*5|0]">
+        change
+      </button>
     </div>
   </body>
 </html>

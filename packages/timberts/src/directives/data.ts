@@ -1,11 +1,15 @@
+import { Directive, DirectiveCallback } from '../directives';
 import { ArbitraryData, addScopeToNode } from '@timberts/core/src';
-import { evaluate } from '@timberts/evaluator/src';
-import { reactive } from '@timberts/reactivity/src';
 
-export const data = async (el: HTMLElement) => {
-  const expression = el.getAttribute('x-data');
+export const datacb: DirectiveCallback = async (
+  el: HTMLElement,
+  { expression },
+  { evaluate, reactive },
+) => {
   console.log('x-data', expression);
   const value = await evaluate<ArbitraryData>(expression);
   console.log(value);
   addScopeToNode(el, reactive(value));
 };
+
+export const data = new Directive(datacb);

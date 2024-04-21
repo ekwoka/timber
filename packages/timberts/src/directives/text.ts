@@ -1,11 +1,17 @@
+import { Directive, DirectiveCallback } from '../directives';
 import { nearestContext } from '@timberts/core/src';
-import { evaluateLater } from '@timberts/evaluator/src';
 import { effect } from '@timberts/reactivity/src';
 
-export const text = (el: HTMLElement) => {
+export const textcb: DirectiveCallback = (
+  el: HTMLElement,
+  { expression },
+  { evaluate },
+) => {
   const root = nearestContext(el);
-  const expression = el.getAttribute('x-text');
   console.log('x-text', expression);
-  const evaluate = evaluateLater(expression, root.data);
-  effect(async () => console.log((el.textContent = await evaluate())));
+  effect(async () =>
+    console.log((el.textContent = await evaluate(expression, root?.data))),
+  );
 };
+
+export const text = new Directive(textcb);

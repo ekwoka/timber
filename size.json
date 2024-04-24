@@ -31,12 +31,12 @@
   },
   "timberts": {
     "minified": {
-      "pretty": "7.21 kB",
-      "raw": 7214
+      "pretty": "7.22 kB",
+      "raw": 7223
     },
     "brotli": {
-      "pretty": "2.54 kB",
-      "raw": 2542
+      "pretty": "2.55 kB",
+      "raw": 2551
     }
   },
   "walker": {

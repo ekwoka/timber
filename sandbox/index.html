@@ -8,11 +8,10 @@
     <script type="module">
       import Timber, { Data, On, Text } from 'timberts/src';
 
-      console.log(Data);
       new Timber()
-        .directive(Data.Name, Data)
-        .directive(Text.Name, Text)
-        .directive(On.Name, On)
+        .directive('data', Data)
+        .directive('text', Text)
+        .directive('on', On)
         .start();
     </script>
   </head>

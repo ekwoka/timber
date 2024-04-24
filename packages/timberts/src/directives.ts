@@ -1,4 +1,5 @@
 import Timber from '.';
+import type { evaluateLater } from '@timberts/evaluator/src';
 import { evaluate } from '@timberts/evaluator/src';
 import { reactive } from '@timberts/reactivity/src';
 
@@ -7,8 +8,8 @@ export class Directive {
   inline(_el: Element, _directive: DirectiveInfo, _utils: DirectiveUtils) {}
   callback(_el: Element, _directive: DirectiveInfo, _utils: DirectiveUtils) {}
   constructor(
-    private el: Element,
-    private directive: DirectiveInfo,
+    public el: Element,
+    public directive: DirectiveInfo,
   ) {}
   init(utils: DirectiveUtils) {
     this.inline?.(this.el, this.directive, utils);
@@ -35,6 +36,7 @@ export type DirectiveCallback = (
 
 export type DirectiveUtils = {
   evaluate: typeof evaluate;
+  evaluateLater: typeof evaluateLater;
   reactive: typeof reactive;
   timber: Timber;
 };
@@ -45,4 +47,11 @@ export type DirectiveInfo = {
   value?: string;
   modifiers: string[];
   expression: string;
+};
+
+export const makeDirective = (name: string, callback: DirectiveCallback) => {
+  return class extends Directive {
+    static override Name = name;
+    override callback = callback;
+  };
 };

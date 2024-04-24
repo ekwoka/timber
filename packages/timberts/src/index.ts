@@ -1,4 +1,6 @@
-import { Directive, type DirectiveInfo } from './directives';
+import { Directive, type DirectiveCallback, makeDirective } from './directives';
+import { parseAttributeName } from './parseAttributeName';
+import { evaluateLater } from '@timberts/evaluator/src';
 import { evaluate } from '@timberts/evaluator/src';
 import { reactive } from '@timberts/reactivity/src';
 import { getRootElements, walk } from '@timberts/walker/src';
@@ -21,7 +23,7 @@ export class Timber {
     console.log(this.directives.entries());
     initTree(this.treeRoot, async (el) => {
       console.log(el);
-      const attrs = el
+      const directives = el
         .getAttributeNames()
         .map(parseAttributeName(this.pre))
         .filter(({ directive }) => this.directives.has(directive))
@@ -34,10 +36,11 @@ export class Timber {
             .from(directive, attr);
         });
       await Promise.all(
-        attrs.map((attr) =>
+        directives.map((attr) =>
           attr.execute({
             reactive: reactive,
             evaluate: evaluate,
+            evaluateLater: evaluateLater,
             timber: this,
           }),
         ),
@@ -60,8 +63,20 @@ export class Timber {
    * @param {Directive} directive directive function
    * @returns {Timber} Timber Instance
    */
-  directive(name: string, directive: typeof Directive): this {
-    this.directives.set(name, directive);
+  directive(name: string, directive: DirectiveCallback): this;
+  /**
+   * Register a custom directive
+   * @param {Directive} directive directive function
+   * @returns {Timber} Timber Instance
+   */
+  directive(directive: typeof Directive): this;
+  directive(
+    nameOrDir: string | typeof Directive,
+    directive?: DirectiveCallback,
+  ): this {
+    if (typeof nameOrDir === 'string')
+      nameOrDir = makeDirective(nameOrDir, directive!);
+    this.directives.set(nameOrDir.Name, nameOrDir);
     return this;
   }
 }
@@ -76,17 +91,3 @@ const initTree = async (
 };
 
 export default Timber;
-
-const parseAttributeName =
-  (pre: string) =>
-  (name: string): DirectiveInfo => {
-    const [directivevalue, ...modifiers] = name.split('.');
-    const [directive, value] = directivevalue.split(':');
-    return {
-      raw: name,
-      directive: directive.slice(pre.length),
-      value,
-      modifiers,
-      expression: '',
-    };
-  };

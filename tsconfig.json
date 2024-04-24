@@ -6,6 +6,7 @@
     "allowImportingTsExtensions": true,
     // TypeChecking Options
     "strict": true,
+    "noImplicitOverride": true,
     "verbatimModuleSyntax": true,
 
     // Module Resolution

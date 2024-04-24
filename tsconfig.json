@@ -1,14 +1,27 @@
 {
+  "exclude": ["**/node_modules", "**/dist", "scripts"],
   "compilerOptions": {
-    "paths": {
-      "@/timberts/*": ["./packages/timberts/src/*"]
-    },
-    "types": ["vitest/globals", "vitest/importMeta"],
+    "types": ["vitest/globals"],
     "allowJs": true,
+    "allowImportingTsExtensions": true,
+    // TypeChecking Options
+    "strict": true,
+    "verbatimModuleSyntax": true,
+
+    // Module Resolution
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "target": "es2022",
+    "customConditions": ["typescript"],
+
+    // Output Options
+    "noEmit": true,
+    "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
-    "module": "es2020",
-    "moduleResolution": "node",
-    "target": "ESNext"
+
+    // features
+    "lib": ["es2022", "dom", "dom.iterable"]
   }
 }

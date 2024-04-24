@@ -1,13 +1,13 @@
-import { Directive, DirectiveInfo } from './directives';
+import { Directive, type DirectiveInfo } from './directives';
 import { evaluate } from '@timberts/evaluator/src';
 import { reactive } from '@timberts/reactivity/src';
 import { getRootElements, walk } from '@timberts/walker/src';
 
-export { data, text, on } from './directives/index';
+export { Data, Text, On } from './directives/index';
 
 export class Timber {
   private pre = 'x-';
-  private directives = new Map<string, Directive>();
+  private directives = new Map<string, typeof Directive>();
   /**
    * Create a Timber Instance
    * @param {HTMLElement} treeRoot to initialize Timber on
@@ -18,6 +18,7 @@ export class Timber {
    * @returns {Timber} Timber Instance
    */
   start(): this {
+    console.log(this.directives.entries());
     initTree(this.treeRoot, async (el) => {
       console.log(el);
       const attrs = el
@@ -25,12 +26,16 @@ export class Timber {
         .map(parseAttributeName(this.pre))
         .filter(({ directive }) => this.directives.has(directive))
         .map((directive) => {
-          directive.expression = el.getAttribute(directive.raw) ?? '';
-          return directive;
+          const attr = el.getAttributeNode(directive.raw);
+          if (!attr) throw new Error('Attribute not found');
+          directive.expression = attr.value;
+          return this.directives
+            .get(directive.directive)!
+            .from(directive, attr);
         });
       await Promise.all(
         attrs.map((attr) =>
-          this.directives.get(attr.directive)?.execute(el, attr, {
+          attr.execute({
             reactive: reactive,
             evaluate: evaluate,
             timber: this,
@@ -55,7 +60,7 @@ export class Timber {
    * @param {Directive} directive directive function
    * @returns {Timber} Timber Instance
    */
-  directive(name: string, directive: Directive): this {
+  directive(name: string, directive: typeof Directive): this {
     this.directives.set(name, directive);
     return this;
   }

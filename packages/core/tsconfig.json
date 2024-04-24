@@ -1,16 +1,4 @@
 {
-  "include": ["src/**/*", "src/nextTick.ts"],
-  "exclude": ["src/**/*.spec.ts", "src/**/*.test.ts"],
-  "compilerOptions": {
-    "types": ["vitest/importMeta", "vitest/globals"],
-    "declaration": true,
-    "declarationMap": true,
-    "esModuleInterop": true,
-    "module": "es2022",
-    "moduleResolution": "node",
-    "outDir": "dist",
-    "skipLibCheck": true,
-    "strict": true,
-    "target": "esNext"
-  }
+  "extends": "../../tsconfig.json",
+  "include": ["./src/**/*.ts"]
 }

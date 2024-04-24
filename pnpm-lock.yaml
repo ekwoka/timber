@@ -90,6 +90,9 @@ importers:
       vite-plugin-dts:
         specifier: 3.8.3
         version: 3.8.3(@types/node@20.12.7)(rollup@4.14.3)(typescript@5.4.5)(vite@5.2.10(@types/node@20.12.7))
+      vite-plugin-external-deps:
+        specifier: 0.0.3
+        version: 0.0.3
       vite-tsconfig-paths:
         specifier: 4.3.2
         version: 4.3.2(typescript@5.4.5)(vite@5.2.10(@types/node@20.12.7))
@@ -1921,6 +1924,9 @@ packages:
     peerDependenciesMeta:
       vite:
         optional: true
+
+  vite-plugin-external-deps@0.0.3:
+    resolution: {integrity: sha512-exhS6quFXBUz4oHQwvQDMsnyJ/vkUHYEVqhPh8JMKcO3+W8j6Vi+BZLNeQ9D6aBEkkLsOo/vmnAMmoQriGmEAw==}
 
   vite-tsconfig-paths@4.3.2:
     resolution: {integrity: sha512-0Vd/a6po6Q+86rPlntHye7F31zA2URZMbH8M3saAZ/xR9QoGN/L21bxEGfXdWmFdNkqPpRdxFT7nmNe12e9/uA==}
@@ -3938,6 +3944,8 @@ snapshots:
       - '@types/node'
       - rollup
       - supports-color
+
+  vite-plugin-external-deps@0.0.3: {}
 
   vite-tsconfig-paths@4.3.2(typescript@5.4.5)(vite@5.2.10(@types/node@20.12.7)):
     dependencies:

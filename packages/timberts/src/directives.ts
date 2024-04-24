@@ -3,28 +3,32 @@ import { evaluate } from '@timberts/evaluator/src';
 import { reactive } from '@timberts/reactivity/src';
 
 export class Directive {
-  protected aft = '';
-  private inCB: DirectiveCallback | null = null;
-  constructor(private cb: DirectiveCallback) {}
-  after(directive: string) {
-    this.aft = directive;
+  static Name = 'unknown';
+  inline(_el: Element, _directive: DirectiveInfo, _utils: DirectiveUtils) {}
+  callback(_el: Element, _directive: DirectiveInfo, _utils: DirectiveUtils) {}
+  constructor(
+    private el: Element,
+    private directive: DirectiveInfo,
+  ) {}
+  init(utils: DirectiveUtils) {
+    this.inline?.(this.el, this.directive, utils);
     return this;
   }
-  inline(cb: DirectiveCallback) {
-    this.inCB = cb;
+  execute(utils: DirectiveUtils) {
+    this.callback?.(this.el, this.directive, utils);
     return this;
   }
-  init(el: HTMLElement, directive: DirectiveInfo, utils: DirectiveUtils) {
-    if (this.inCB) this.inCB(el, directive, utils);
-    return this;
-  }
-  execute(el: HTMLElement, directive: DirectiveInfo, utils: DirectiveUtils) {
-    this.cb(el, directive, utils);
+
+  static after = '';
+  static from(directive: DirectiveInfo, attr: Attr) {
+    const el = attr.ownerElement;
+    if (!el) throw new Error('Attribute has no owner element');
+    return new this(el, directive);
   }
 }
 
 export type DirectiveCallback = (
-  el: HTMLElement,
+  el: Element,
   directive: DirectiveInfo,
   utils: DirectiveUtils,
 ) => void | Promise<void>;

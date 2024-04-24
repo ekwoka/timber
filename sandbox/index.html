@@ -6,12 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AlpineTS Sandbox</title>
     <script type="module">
-      import Timber, { data, on, text } from 'timberts/src';
+      import Timber, { Data, On, Text } from 'timberts/src';
 
+      console.log(Data);
       new Timber()
-        .directive('data', data)
-        .directive('text', text)
-        .directive('on', on)
+        .directive(Data.Name, Data)
+        .directive(Text.Name, Text)
+        .directive(On.Name, On)
         .start();
     </script>
   </head>

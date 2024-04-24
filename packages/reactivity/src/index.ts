@@ -8,7 +8,7 @@ export {
   untrack,
   computed,
   Effect,
-  ReactiveEffect,
+  type ReactiveEffect,
   effect,
   release,
   stop,

@@ -1,9 +1,9 @@
 import { Directive, type DirectiveCallback, makeDirective } from './directives';
 import { parseAttributeName } from './parseAttributeName';
-import { evaluateLater } from '@timberts/evaluator/src';
-import { evaluate } from '@timberts/evaluator/src';
-import { reactive } from '@timberts/reactivity/src';
-import { getRootElements, walk } from '@timberts/walker/src';
+import { evaluateLater } from '@timberts/evaluator';
+import { evaluate } from '@timberts/evaluator';
+import { reactive } from '@timberts/reactivity';
+import { getRootElements, walk } from '@timberts/walker';
 
 export { Data, Text, On } from './directives/index';
 

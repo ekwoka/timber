@@ -1,6 +1,6 @@
 import { type DirectiveCallback } from '../directives';
-import { nearestContext } from '@timberts/core/src';
-import { effect } from '@timberts/reactivity/src';
+import { nearestContext } from '@timberts/core';
+import { effect } from '@timberts/reactivity';
 
 export const Text: DirectiveCallback = (
   el,

@@ -1,7 +1,7 @@
 import Timber from '.';
-import type { evaluateLater } from '@timberts/evaluator/src';
-import { evaluate } from '@timberts/evaluator/src';
-import { reactive } from '@timberts/reactivity/src';
+import type { evaluateLater } from '@timberts/evaluator';
+import { evaluate } from '@timberts/evaluator';
+import { reactive } from '@timberts/reactivity';
 
 export class Directive {
   static Name = 'unknown';

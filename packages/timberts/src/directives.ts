@@ -1,7 +1,9 @@
 import Timber from '.';
+import { mergeReactiveStack } from '../../reactivity/src/reactive';
+import type { ArbitraryData } from '@timberts/core';
 import type { evaluateLater } from '@timberts/evaluator';
 import { evaluate } from '@timberts/evaluator';
-import { reactive } from '@timberts/reactivity';
+import { type effect } from '@timberts/reactivity';
 
 export class Directive {
   static Name = 'unknown';
@@ -15,7 +17,25 @@ export class Directive {
     this.inline?.(this.el, this.directive, utils);
     return this;
   }
-  execute(utils: DirectiveUtils) {
+  execute(Timber: Timber) {
+    const utils: DirectiveUtils = {
+      Timber,
+      effect: Timber.effect,
+      cleanup: (_callback: () => void) => {},
+      evaluateLater: <T>(expression: string, extras?: ArbitraryData) => {
+        const evaluate = Timber.evaluateLater<T>(
+          expression,
+          mergeReactiveStack([Timber.$data(this.el) ?? {}, extras ?? {}]),
+        );
+        return () => evaluate();
+      },
+      evaluate: <T>(expression: string, extras?: ArbitraryData) => {
+        return Timber.evaluate<T>(
+          expression,
+          mergeReactiveStack([Timber.$data(this.el) ?? {}, extras ?? {}]),
+        );
+      },
+    };
     this.callback?.(this.el, this.directive, utils);
     return this;
   }
@@ -35,10 +55,11 @@ export type DirectiveCallback = (
 ) => void | Promise<void>;
 
 export type DirectiveUtils = {
-  evaluate: typeof evaluate;
+  Timber: Timber;
+  effect: typeof effect;
+  cleanup: (callback: () => void) => void;
   evaluateLater: typeof evaluateLater;
-  reactive: typeof reactive;
-  timber: Timber;
+  evaluate: typeof evaluate;
 };
 
 export type DirectiveInfo = {

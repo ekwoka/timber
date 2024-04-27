@@ -1,8 +1,11 @@
 import { Directive, type DirectiveCallback, makeDirective } from './directives';
 import { parseAttributeName } from './parseAttributeName';
+import { nearestContext } from '@timberts/core';
+import type { ArbitraryData } from '@timberts/core';
 import { evaluateLater } from '@timberts/evaluator';
 import { evaluate } from '@timberts/evaluator';
-import { reactive } from '@timberts/reactivity';
+import type { Effect } from '@timberts/reactivity';
+import { effect, reactive } from '@timberts/reactivity';
 import { getRootElements, walk } from '@timberts/walker';
 
 export { Data, Text, On } from './directives/index';
@@ -35,16 +38,7 @@ export class Timber {
             .get(directive.directive)!
             .from(directive, attr);
         });
-      await Promise.all(
-        directives.map((attr) =>
-          attr.execute({
-            reactive: reactive,
-            evaluate: evaluate,
-            evaluateLater: evaluateLater,
-            timber: this,
-          }),
-        ),
-      );
+      await Promise.all(directives.map((attr) => attr.execute(this)));
     });
     return this;
   }
@@ -78,6 +72,28 @@ export class Timber {
       nameOrDir = makeDirective(nameOrDir, directive!);
     this.directives.set(nameOrDir.Name, nameOrDir);
     return this;
+  }
+
+  reactive<T>(value: T): T {
+    return reactive(value);
+  }
+  effect(callback: () => void): Effect {
+    return effect(callback);
+  }
+  evaluate<T>(
+    expression: string,
+    extras?: Record<string, unknown>,
+  ): Promise<T> {
+    return evaluate<T>(expression, extras);
+  }
+  evaluateLater<T>(
+    expression: string,
+    extras?: Record<string, unknown>,
+  ): () => Promise<T> {
+    return evaluateLater<T>(expression, extras);
+  }
+  $data(el: Element): ArbitraryData | null {
+    return nearestContext(el)?.data ?? null;
   }
 }
 

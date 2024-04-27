@@ -15,8 +15,8 @@
       "raw": 708
     },
     "brotli": {
-      "pretty": "394 B",
-      "raw": 394
+      "pretty": "397 B",
+      "raw": 397
     }
   },
   "reactivity": {
@@ -25,18 +25,18 @@
       "raw": 4728
     },
     "brotli": {
-      "pretty": "1.62 kB",
-      "raw": 1617
+      "pretty": "1.61 kB",
+      "raw": 1613
     }
   },
   "timberts": {
     "minified": {
-      "pretty": "7.22 kB",
-      "raw": 7223
+      "pretty": "8.21 kB",
+      "raw": 8207
     },
     "brotli": {
-      "pretty": "2.55 kB",
-      "raw": 2551
+      "pretty": "2.86 kB",
+      "raw": 2857
     }
   },
   "walker": {

@@ -13,8 +13,8 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    include: ['./**/*{.spec,.test}.{ts,tsx}'],
-    includeSource: ['./**/*.{ts,tsx}'],
+    include: ['../packages/**/*{.spec,.test}.{ts,tsx}'],
+    includeSource: ['../packages/**/*.{ts,tsx}'],
     reporters: ['dot'],
     deps: {},
     passWithNoTests: true,

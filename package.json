@@ -68,7 +68,6 @@
   },
   "pnpm": {
     "overrides": {
-      "eslint": "9.1.1",
       "@esbuild/android-arm": "$esbuild",
       "@esbuild/android-arm64": "$esbuild",
       "@esbuild/android-x64": "$esbuild",

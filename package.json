@@ -22,7 +22,7 @@
     "precommit": "run-s lint:staged build size",
     "prepare": "husky",
     "size": "node scripts/getSize.js",
-    "test": "pnpm run -r test",
+    "test": "vitest",
     "test:run": "pnpm run -r test --run"
   },
   "devDependencies": {

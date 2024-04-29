@@ -8,7 +8,7 @@ export const parseAttributeName =
     return {
       raw: name,
       directive: directive.slice(pre.length),
-      value,
+      value: value ?? '',
       modifiers,
       expression: '',
     };

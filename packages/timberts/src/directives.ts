@@ -5,6 +5,8 @@ import type { evaluateLater } from '@timberts/evaluator';
 import { evaluate } from '@timberts/evaluator';
 import { type effect } from '@timberts/reactivity';
 
+const AttrDirectiveMap = new WeakMap<Attr, Directive>();
+
 export class Directive {
   static Name = 'unknown';
   inline(_el: Element, _directive: DirectiveInfo, _utils: DirectiveUtils) {}
@@ -12,7 +14,9 @@ export class Directive {
   constructor(
     public el: Element,
     public directive: DirectiveInfo,
-  ) {}
+  ) {
+    if (directive.attr) AttrDirectiveMap.set(directive.attr, this);
+  }
   init(utils: DirectiveUtils) {
     this.inline?.(this.el, this.directive, utils);
     return this;
@@ -21,7 +25,7 @@ export class Directive {
     const utils: DirectiveUtils = {
       Timber,
       effect: Timber.effect,
-      cleanup: (_callback: () => void) => {},
+      cleanup: (callback: () => void) => this.cleanups.push(callback),
       evaluateLater: <T>(expression: string, extras?: ArbitraryData) => {
         const evaluate = Timber.evaluateLater<T>(
           expression,
@@ -39,10 +43,15 @@ export class Directive {
     this.callback?.(this.el, this.directive, utils);
     return this;
   }
+  cleanups: (() => void)[] = [];
+  cleanup() {
+    this.cleanups.forEach((clean) => clean());
+  }
 
   static after = '';
   static from(directive: DirectiveInfo, attr: Attr) {
     const el = attr.ownerElement;
+    directive.attr = attr;
     if (!el) throw new Error('Attribute has no owner element');
     return new this(el, directive);
   }
@@ -65,9 +74,10 @@ export type DirectiveUtils = {
 export type DirectiveInfo = {
   raw: string;
   directive: string;
-  value?: string;
+  value: string;
   modifiers: string[];
   expression: string;
+  attr?: Attr;
 };
 
 export const makeDirective = (name: string, callback: DirectiveCallback) => {

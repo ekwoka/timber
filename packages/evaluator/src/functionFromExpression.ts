@@ -27,7 +27,7 @@ export const functionFromExpression = <T>(expression: string) => {
     anoop,
   );
   funcCache.set(expression, func);
-  if (func === anoop && !import.meta.vitest)
+  if (func === anoop)
     console.error('Invalid Function Expression: ', expression);
   return func as (
     state: Record<string | symbol | number, unknown>,

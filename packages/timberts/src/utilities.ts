@@ -1,4 +1,4 @@
-import type Timber from '.';
+import type Timber from './Timber';
 import type { evaluate, evaluateLater } from '@timberts/evaluator';
 import type { effect } from '@timberts/reactivity';
 

@@ -1,5 +1,5 @@
-import Timber from '.';
 import { mergeReactiveStack } from '../../reactivity/src/reactive';
+import Timber from './Timber';
 import { parseAttributeName } from './parseAttributeName';
 import type { ArbitraryData } from '@timberts/core';
 import type { evaluateLater } from '@timberts/evaluator';

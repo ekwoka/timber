@@ -5,13 +5,30 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AlpineTS Sandbox</title>
+    <style>
+      [x-cloak] {
+        display: none !important;
+      }
+    </style>
     <script type="module">
-      import Timber, { Data, On, Text } from 'timberts';
+      import Timber, {
+        Cloak,
+        Data,
+        Effect,
+        HTML,
+        Init,
+        On,
+        Text,
+      } from 'timberts';
 
       new Timber()
         .directive('data', Data)
         .directive('text', Text)
         .directive('on', On)
+        .directive('cloak', Cloak)
+        .directive('effect', Effect)
+        .directive('html', HTML)
+        .directive('init', Init)
         .mapAttributes((attr) =>
           attr.startsWith('v-') ? attr.replace('v-', 'x-') : attr,
         )
@@ -28,6 +45,7 @@
       min-height: 100vh;
     ">
     <div
+      x-cloak
       x-data="{ hello: 'world' }"
       style="
         max-width: max-content;
@@ -35,11 +53,17 @@
         flex-direction: column;
         gap: 8px;
       ">
-      <span v-text="hello">Not working</span>
+      <span
+        x-text="hello"
+        x-effect="console.log(hello)"
+        x-init="hello = 'mother'">
+        Not working
+      </span>
       <button
         x-on:click="hello = ['mom', 'hello', 'world', 'random', 'number'][Math.random()*5|0]">
         change
       </button>
+      <div x-html="`<h1 x-text=hello></h1>`"></div>
     </div>
   </body>
 </html>

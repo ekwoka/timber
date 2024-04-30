@@ -43,7 +43,11 @@ export class Directive {
   execute(Timber: Timber) {
     const utils: DirectiveUtils = {
       Timber,
-      effect: Timber.effect,
+      effect: (cb: () => void) => {
+        const effect = Timber.effect(cb);
+        this.cleanups.push(() => effect.release());
+        return effect;
+      },
       cleanup: (callback: () => void) => this.cleanups.push(callback),
       evaluateLater: <T>(expression: string, extras?: ArbitraryData) => {
         const evaluate = Timber.evaluateLater<T>(

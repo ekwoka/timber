@@ -1,4 +1,4 @@
-import { type DirectiveCallback } from '../directives';
+import type { DirectiveCallback } from '../directives';
 import { type ArbitraryData, addScopeToNode } from '@timberts/core';
 
 export const Data: DirectiveCallback = async (

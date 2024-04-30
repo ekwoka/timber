@@ -8,7 +8,7 @@ import type { Effect } from '@timberts/reactivity';
 import { effect, reactive } from '@timberts/reactivity';
 import { getRootElements, walk } from '@timberts/walker';
 
-export { Data, Text, On } from './directives/index';
+export { Data, Text, On, Cloak, Effect, HTML, Init } from './directives/index';
 
 export class Timber {
   private pre = 'x-';

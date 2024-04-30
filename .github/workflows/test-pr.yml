@@ -14,7 +14,7 @@ jobs:
     outputs:
       packages: ${{ steps.ls.outputs.packages }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Gather package directories
         id: ls
         run: echo "packages=[$(ls -d packages/* | sed 's/[^[:alnum:]]/\\&/g' | sed 's/.*/"&",/' | tr -d '\n' | sed '$s/,$//')]" >> $GITHUB_OUTPUT
@@ -26,13 +26,14 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 20
 
-      - uses: pnpm/action-setup@v2.2.4
+      - uses: pnpm/action-setup@v2.4.0
         name: Install pnpm
         id: pnpm-install
         with:
           version: latest
+          standalone: true
           run_install: false
 
       - name: Get pnpm store directory
@@ -67,13 +68,14 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 20
 
-      - uses: pnpm/action-setup@v2.2.4
+      - uses: pnpm/action-setup@v2.4.0
         name: Install pnpm
         id: pnpm-install
         with:
           version: latest
+          standalone: true
           run_install: false
 
       - name: Get pnpm store directory
@@ -114,13 +116,14 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 20
 
-      - uses: pnpm/action-setup@v2.2.4
+      - uses: pnpm/action-setup@v2.4.0
         name: Install pnpm
         id: pnpm-install
         with:
           version: latest
+          standalone: true
           run_install: false
 
       - name: Get pnpm store directory
@@ -158,13 +161,14 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 20
 
-      - uses: pnpm/action-setup@v2.2.4
+      - uses: pnpm/action-setup@v2.4.0
         name: Install pnpm
         id: pnpm-install
         with:
           version: latest
+          standalone: true
           run_install: false
 
       - name: Get pnpm store directory

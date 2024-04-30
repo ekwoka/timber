@@ -12,6 +12,9 @@
         .directive('data', Data)
         .directive('text', Text)
         .directive('on', On)
+        .mapAttributes((attr) =>
+          attr.startsWith('v-') ? attr.replace('v-', 'x-') : attr,
+        )
         .start();
     </script>
   </head>
@@ -32,7 +35,7 @@
         flex-direction: column;
         gap: 8px;
       ">
-      <span x-text="hello">Not working</span>
+      <span v-text="hello">Not working</span>
       <button
         x-on:click="hello = ['mom', 'hello', 'world', 'random', 'number'][Math.random()*5|0]">
         change

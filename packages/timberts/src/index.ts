@@ -1,4 +1,5 @@
 import { Directive, type DirectiveCallback, makeDirective } from './directives';
+import { type AttributeTransformer, mapAttributes } from './mapAttributes';
 import { nearestContext } from '@timberts/core';
 import type { ArbitraryData } from '@timberts/core';
 import { evaluateLater } from '@timberts/evaluator';
@@ -12,6 +13,7 @@ export { Data, Text, On } from './directives/index';
 export class Timber {
   private pre = 'x-';
   private directives = new Map<string, typeof Directive>();
+
   /**
    * Create a Timber Instance
    * @param {HTMLElement} treeRoot to initialize Timber on
@@ -22,14 +24,16 @@ export class Timber {
    * @returns {Timber} Timber Instance
    */
   start(): this {
+    const mapper = mapAttributes(this.attributeMaps);
     initTree(this.treeRoot, async (el) => {
       const directives = el
         .getAttributeNames()
-        .filter((attribute) => attribute.startsWith(this.pre))
-        .map((attribute) => {
-          const attr = el.getAttributeNode(attribute);
+        .map((attr) => [mapper(attr), attr])
+        .filter(([attribute]) => attribute.startsWith(this.pre))
+        .map(([attribute, raw]) => {
+          const attr = el.getAttributeNode(raw);
           if (!attr) throw new Error('Attribute not found');
-          const name = attr.name.match(new RegExp(`^${this.pre}([^.:]+)`))?.[1];
+          const name = attribute.match(new RegExp(`^${this.pre}([^.:]+)`))?.[1];
           if (!name || !this.directives.has(name)) return;
           const directive = this.directives.get(name)!.from(this.pre, attr);
           directive.init(this);
@@ -93,6 +97,11 @@ export class Timber {
   }
   $data(el: Element): ArbitraryData | null {
     return nearestContext(el)?.data ?? null;
+  }
+  private attributeMaps: AttributeTransformer[] = [];
+  mapAttributes(fn: AttributeTransformer): this {
+    this.attributeMaps.push(fn);
+    return this;
   }
 }
 

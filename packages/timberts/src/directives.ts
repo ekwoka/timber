@@ -1,5 +1,6 @@
 import Timber from '.';
 import { mergeReactiveStack } from '../../reactivity/src/reactive';
+import { parseAttributeName } from './parseAttributeName';
 import type { ArbitraryData } from '@timberts/core';
 import type { evaluateLater } from '@timberts/evaluator';
 import { evaluate } from '@timberts/evaluator';
@@ -17,7 +18,25 @@ export class Directive {
   ) {
     if (directive.attr) AttrDirectiveMap.set(directive.attr, this);
   }
-  init(utils: DirectiveUtils) {
+  init(Timber: Timber) {
+    const utils: DirectiveUtils = {
+      Timber,
+      effect: Timber.effect,
+      cleanup: (callback: () => void) => this.cleanups.push(callback),
+      evaluateLater: <T>(expression: string, extras?: ArbitraryData) => {
+        const evaluate = Timber.evaluateLater<T>(
+          expression,
+          mergeReactiveStack([Timber.$data(this.el) ?? {}, extras ?? {}]),
+        );
+        return () => evaluate();
+      },
+      evaluate: <T>(expression: string, extras?: ArbitraryData) => {
+        return Timber.evaluate<T>(
+          expression,
+          mergeReactiveStack([Timber.$data(this.el) ?? {}, extras ?? {}]),
+        );
+      },
+    };
     this.inline?.(this.el, this.directive, utils);
     return this;
   }
@@ -49,11 +68,14 @@ export class Directive {
   }
 
   static after = '';
-  static from(directive: DirectiveInfo, attr: Attr) {
+  static from(pre: string, attr: Attr) {
     const el = attr.ownerElement;
-    directive.attr = attr;
+    const parsed = Object.assign(parseAttributeName(pre, attr.name), {
+      attr,
+      expression: attr.value,
+    }) as DirectiveInfo;
     if (!el) throw new Error('Attribute has no owner element');
-    return new this(el, directive);
+    return new this(el, parsed);
   }
 }
 
@@ -77,7 +99,7 @@ export type DirectiveInfo = {
   value: string;
   modifiers: string[];
   expression: string;
-  attr?: Attr;
+  attr: Attr;
 };
 
 export const makeDirective = (name: string, callback: DirectiveCallback) => {

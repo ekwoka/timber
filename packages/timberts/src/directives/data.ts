@@ -6,8 +6,6 @@ export const Data: DirectiveCallback = async (
   { expression },
   { evaluate, Timber },
 ) => {
-  console.log('x-data', expression);
   const value = await evaluate<ArbitraryData>(expression);
-  console.log(value);
   addScopeToNode(el, Timber.reactive(value));
 };

@@ -6,7 +6,6 @@ export const Text: DirectiveCallback = (
   { expression },
   { evaluateLater },
 ) => {
-  console.log('x-text', expression);
   const evaluate = evaluateLater<string>(expression);
-  effect(async () => console.log((el.textContent = await evaluate())));
+  effect(async () => (el.textContent = await evaluate()));
 };

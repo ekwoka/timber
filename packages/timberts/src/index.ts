@@ -1,5 +1,4 @@
 import { Directive, type DirectiveCallback, makeDirective } from './directives';
-import { parseAttributeName } from './parseAttributeName';
 import { nearestContext } from '@timberts/core';
 import type { ArbitraryData } from '@timberts/core';
 import { evaluateLater } from '@timberts/evaluator';
@@ -23,21 +22,21 @@ export class Timber {
    * @returns {Timber} Timber Instance
    */
   start(): this {
-    console.log(this.directives.entries());
     initTree(this.treeRoot, async (el) => {
-      console.log(el);
       const directives = el
         .getAttributeNames()
-        .map(parseAttributeName(this.pre))
-        .filter(({ directive }) => this.directives.has(directive))
-        .map((directive) => {
-          const attr = el.getAttributeNode(directive.raw);
+        .filter((attribute) => attribute.startsWith(this.pre))
+        .map((attribute) => {
+          const attr = el.getAttributeNode(attribute);
           if (!attr) throw new Error('Attribute not found');
-          directive.expression = attr.value;
-          return this.directives
-            .get(directive.directive)!
-            .from(directive, attr);
-        });
+          const name = attr.name.match(new RegExp(`^${this.pre}([^.:]+)`))?.[1];
+          if (!name || !this.directives.has(name)) return;
+          const directive = this.directives.get(name)!.from(this.pre, attr);
+          directive.init(this);
+
+          return directive;
+        })
+        .filter(Boolean) as Directive[];
       await Promise.all(directives.map((attr) => attr.execute(this)));
     });
     return this;
@@ -102,7 +101,6 @@ const initTree = async (
   cb: (el: HTMLElement) => Promise<void> | void,
 ) => {
   const roots = getRootElements(el);
-  console.log(roots);
   await Promise.all(Array.prototype.map.call(roots, walk(cb)));
 };
 
